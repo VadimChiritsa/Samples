@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://web-harvest.sourceforge.net/schema/1.0/config"
+	charset="UTF-8" scriptlang="groovy">
+
+	<script><![CDATA[
+		mozLoginAlias = "moz_credentials";
+		mozUserAPIAlias = "user_api_key";
+		mozDevAPIAlias = "dev_api_key";
+		mozEmailServiceAlias = "email_service_account";
+	]]></script>
+
+
+	<secure-store-get alias="${mozLoginAlias}" />
+	<secure-store-get alias="${mozUserAPIAlias}" />
+	<secure-store-get alias="${mozDevAPIAlias}" />
+	<secure-store-get alias="${mozEmailServiceAlias}" />
+
+	<script><![CDATA[
+		import com.freedomoss.crowdcontrol.webharvest.web.dto.*
+		Map entryMap = secureEntryMap.getWrappedObject();
+		SecureEntryDTO apiCredendialsDev = entryMap.get(mozDevAPIAlias);
+		SecureEntryDTO apiCredendialsUser = entryMap.get(mozUserAPIAlias);
+		SecureEntryDTO loginPasswordMozSite = entryMap.get(mozLoginAlias);
+		SecureEntryDTO emailServiceLoginPassword = entryMap.get(mozEmailServiceAlias);
+		username = loginPasswordMozSite.getKey().toString();
+		password = loginPasswordMozSite.getValue().toString();
+		userAPIAccessID = apiCredendialsUser.getKey().toString();
+		userAPISecretKey = apiCredendialsUser.getValue().toString();
+		devAPIAccessID = apiCredendialsDev.getKey().toString();
+		devAPISecretKey = apiCredendialsDev.getValue().toString();
+		emailService = emailServiceLoginPassword.getKey().toString();
+		emailServicePassword = emailServiceLoginPassword.getValue().toString();
+	]]></script>
+
+
+	<script><![CDATA[
+		public class SecureDatastore {
+			String usernameDS = "";
+			String passwordDS = "";
+			String userAPISecretKey = "";
+			String userAPIAccessID = "";
+			String devAPISecretKey = "";
+			String devAPIAccessID = "";
+			String emailService = "";
+			String emailServicePassword = "";
+
+			public SecureDatastore(String username, String password, String userAPISecretKey, String userAPIAccessID, String devAPISecretKey, String devAPIAccessID, String emailService, String emailServicePassword) {
+
+				this.usernameDS = username;
+				this.passwordDS = password;
+				this.userAPISecretKey = userAPISecretKey;
+				this.userAPIAccessID = userAPIAccessID;
+				this.devAPISecretKey = devAPISecretKey;
+				this.devAPIAccessID = devAPIAccessID;
+				this.emailService = emailService;
+				this.emailServicePassword = emailServicePassword;
+			}
+
+			public String getUserDataKey(){
+				return userAPISecretKey;
+			}
+
+			public String getUserDataAccessID(){
+				return userAPIAccessID;
+			}
+
+			public String getDevDataKey(){
+				return devAPISecretKey;
+			}
+
+			public String getDevDataAccessID(){
+				return devAPIAccessID;
+			}
+
+			public String getUsernameDS(){
+				return usernameDS;
+			}
+
+			public String getPasswordDS(){
+				return passwordDS;
+			}
+
+
+			public String getEmailService(){
+				return emailService;
+			}
+
+			public String getEmailServicePassword(){
+				return emailServicePassword;
+			}
+		}
+
+		sys.defineVariable("datastore", new SecureDatastore(username, password, userAPISecretKey, userAPIAccessID, devAPISecretKey, devAPIAccessID, emailService, emailServicePassword));
+	]]></script>
+
+	<export include-original-data="true"></export>
+
+</config>

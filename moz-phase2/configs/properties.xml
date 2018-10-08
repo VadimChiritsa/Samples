@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://web-harvest.sourceforge.net/schema/1.0/config"
+	scriptlang="groovy">
+	<script><![CDATA[
+		public class Properties {
+		
+			public Properties() {
+			}
+
+			public final String MOZLINK = "https://moz.com/login";
+			public final String FILE_PATH = "C:\\Shared folder\\Moz\\";
+			//public final String FILE_PATH = "C:\\SHARED_FOLDER\\MOZ\\"; //for old dev/new dev instances path aren't the same!
+			public final String FILE_NAME = "DomainBaseline-RPA.XLSX";
+			public final String DS_NAME = "gagarin_moz_db";
+			public final String EMAIL_TO = "vadim_chiritsa@epam.com";
+			public final String EMAIL_CC = "vadim_chiritsa@epam.com";
+			
+
+			//information for RUNNER_PARSE_INPUT_EXCEL_FILL_DS bot
+			public final int RUNNER_PARSE_INPUT_EXCEL_FILL_DS_ATTEMPT_MAX_QTY = 3;
+			public final int RUNNER_PARSE_INPUT_EXCEL_FILL_DS_CACHE_LIFE_CYCLE = 30;
+			public final String RUNNER_PARSE_INPUT_EXCEL_FILL_DS_BOT_TITLE = "gagarin_moz_runner_dont_touch";
+
+			//information for RUNNER_CREATE_EXCEL_REPORT bot
+			public final int RUNNER_CREATE_EXCEL_REPORT_ATTEMPT_MAX_QTY = 3;
+			public final int RUNNER_CREATE_EXCEL_REPORT_CACHE_LIFE_CYCLE = 30;
+			public final String RUNNER_CREATE_EXCEL_REPORT_BOT_TITLE = "gagarin_moz_runner_create_report";
+			public final String DS_NAME_FOR_EXCEL_REPORT_PATH = "gagarin_moz_excel_report_path";
+
+			//information for RUNNER_COLLECT_DATA_FROM_MOZ bot
+			public final int RUNNER_COLLECT_DATA_FROM_MOZ_ATTEMPT_MAX_QTY = 3;
+			public final int RUNNER_COLLECT_DATA_FROM_MOZ_CACHE_LIFE_CYCLE = 300;
+			public final String RUNNER_COLLECT_DATA_FROM_MOZ_BOT_TITLE = "gagarin_moz_runner_collect_data_moz";
+
+			//information for RUNNER_COLLECT_DATA_FROM_MOZ_HTTP (API HTTP) bot
+			public final int RUNNER_COLLECT_DATA_FROM_MOZ_HTML_ATTEMPT_MAX_QTY = 3;
+			public final int RUNNER_COLLECT_DATA_FROM_MOZ_HTML_CACHE_LIFE_CYCLE = 500;
+			public final String RUNNER_COLLECT_DATA_FROM_MOZ_HTML_BOT_TITLE = "gagarin_moz_runner_http_data_moz";
+			
+			//information for RUNNER_COLLECT_DATA_FROM_MOZ_HTTP (HTTP ONLY) bot
+			public final int RUNNER_COLLECT_DATA_HTTP_ONLY_ATTEMPT_MAX_QTY = 3;
+			public final int RUNNER_COLLECT_DATA_HTTP_ONLY_CACHE_LIFE_CYCLE = 500;
+			public final String RUNNER_COLLECT_DATA_HTTP_ONLY_BOT_TITLE = "gagarin_moz_runner_http_only";
+
+			//information for RUNNER_SEND_EMAIL_TO_CUSTOMER bot
+			public final int RUNNER_SEND_EMAIL_TO_CUSTOMER_ATTEMPT_MAX_QTY = 3;
+			public final int RUNNER_SEND_EMAIL_TO_CUSTOMER_CACHE_LIFE_CYCLE = 30;
+			public final String RUNNER_SEND_EMAIL_TO_CUSTOMER_BOT_TITLE = "gagarin_moz_runner_send_email";
+
+			//information for RUNNER_COLLECT_DATA_FROM_SITE_UI bot
+			public final int RUNNER_COLLECT_DATA_FROM_SITE_UI_ATTEMPT_MAX_QTY = 3;
+			public final int RUNNER_COLLECT_DATA_FROM_SITE_UI_CACHE_LIFE_CYCLE = 500;
+			public final String RUNNER_COLLECT_DATA_FROM_SITE_UI_BOT_TITLE = "gagarin_moz_runner_collect_site_ui";
+
+			public static void main(String[] args) {
+			}
+
+			//used in moz_api_service
+			public final String LINKTOSEARCHPAGE = "https://analytics.moz.com/pro/link-explorer/";
+			public final String DATASTORENAME = "moz_my";
+			public final String COLUMNNAME = "URL";
+		}
+		sys.defineVariable("propertiesObject", new Properties());
+
+		public class ColumnsTitles{
+			//datastore columns moz_db_columns_new for the rootdomain
+			public final String URL = "url";
+			public final String LINKING_DOMAINS_ROOT_DOMAIN = "linkingdomains_rootdomain";
+			public final String INBOUND_LINKS_ROOT_DOMAIN = "inboundlinks_rootdomain";
+			public final String DOMAIN_AUTHORITY_ROOT_DOMAIN = "domainauthority_rootdomain";
+			public final String JUST_DISCOVERED_ROOT_DOMAIN = "justdiscovered_rootdomain";
+			public final String LOST_ROOT_DOMAIN = "lost_rootdomain";
+			public final String NET_ROOT_DOMAIN = "net_rootdomain";
+			
+			//datastore columns moz_db_columns_new for the rootdomain
+			public final String LINKING_DOMAINS_SUB_DOMAIN = "linkingdomains_subdomain";
+			public final String INBOUND_LINKS_SUB_DOMAIN = "inboundlinks_subdomain";
+			public final String DOMAIN_AUTHORITY_SUB_DOMAIN = "domainauthority_subdomain";
+			public final String JUST_DISCOVERED_SUB_DOMAIN = "justdiscovered_subdomain";
+			public final String LOST_SUB_DOMAIN = "lost_subdomain";
+			public final String NET_SUB_DOMAIN = "net_subdomain";
+
+			public static void main(String[] args) {
+			}
+		}
+
+		sys.defineVariable("columnsTitlesObject", new ColumnsTitles());
+	]]></script>
+	<export include-original-data="true"></export>
+
+</config>

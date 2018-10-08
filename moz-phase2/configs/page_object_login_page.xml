@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://web-harvest.sourceforge.net/schema/1.0/config"
+	scriptlang="groovy">
+
+
+	<script><![CDATA[
+		import org.openqa.selenium.Cookie;
+	]]></script>
+
+	<script><![CDATA[
+		public class LoginPageActions {
+			private WebDriver driver;
+			private def logger;
+			private def waiters;
+			private def datastore;
+			private def properties;
+			private LoginPageElements loginPageElements;
+
+
+			public LoginPageActions() {
+				loginPageElements = new LoginPageElements();
+			}
+
+			public setInstance(WebDriver driver, def log, def waiters, def data, def properties) {
+				this.driver = driver;
+				this.logger = log;
+				this.waiters = waiters;
+				this.datastore = data;
+				this.properties = properties;
+			}
+
+			//this function is for prod usage
+			public void enterMail() {
+				logger.info ("STEP: Enter email");
+				open(properties.MOZLINK);
+				loginPageElements.getFieldEmail().val(getAccountEmailFromSecureStorage()).pressEnter();
+				loginPageElements.getFieldPassword().val(getPaswordFromSecureStorage());
+				loginPageElements.getButtonSubmit().click();
+				logger.info ("STEP: Enter email - FINISHED SUCCESSFUL");
+			}
+
+			public String getAccountEmailFromSecureStorage () {
+				logger.info ("STEP: Get account email from secure storage");
+				String username = (datastore.getUsernameDS());
+				logger.info ("STEP:Get account email from secure storage - FINISHED SUCCESSFUL");
+				return username;
+			}
+
+			public String getPaswordFromSecureStorage() {
+				logger.info ("STEP: Get password from secure storage");
+				String password = (datastore.getPasswordDS());
+				logger.info ("STEP:Get password from secure storage - FINISHED SUCCESSFUL");
+				return password;
+			}
+
+			public HashSet<Cookie> getCookies() {
+				logger.info ("STEP: Get cookies");
+				HashSet<Cookie> cookies = (HashSet<Cookie>) driver.manage().getCookies();
+				logger.info ("STEP:Get Get cookies - FINISHED SUCCESSFUL");
+				return cookies;
+			}
+
+		}
+
+		public class LoginPageElements {
+
+			public LoginPageElements() {
+			}
+
+			public WebElement getFieldEmail() {
+				return 	$("#input-email");
+			}
+
+			public WebElement getFieldPassword() {
+				return 	$("#input-password");
+			}
+
+			public WebElement getButtonSubmit() {
+				return 	$(byXpath("//button[contains(text(), 'LOG IN')]"));
+			}
+		}
+
+
+		sys.defineVariable("login_page_actions", new LoginPageActions());
+	]]></script>
+
+	<export include-original-data="false">
+	</export>
+
+</config>

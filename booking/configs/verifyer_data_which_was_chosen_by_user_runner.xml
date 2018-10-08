@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://web-harvest.sourceforge.net/schema/1.0/config"
+	scriptlang="groovy">
+
+	<include-config code="bot_htmlCreater"></include-config>
+
+	<var-def name="inputJson">
+		<template>${field_json}</template>
+	</var-def>
+
+	<var-def name="custumerJson">
+		<template>${slot}</template>
+	</var-def>
+
+	<script><![CDATA[
+		import groovy.json.*;
+		import java.util.stream.*;
+		import java.text.SimpleDateFormat;
+		import org.slf4j.LoggerFactory;
+		import org.slf4j.Logger;
+
+		def jsonSlurper = new JsonSlurper();
+		def customerDataList = jsonSlurper.parseText(custumerJson.toString()).get("slot");
+		def dataFromtJsonList = jsonSlurper.parseText(inputJson.toString().replace("BARBECUE", "barbecue").replace("RED", "red").replace("YELLOW", "yellow"));
+		log.info("INPUT JSON"+dataFromtJsonList);
+		def templateHtmlPage = "<html>\n"+
+				"<style>\ntable, th, td { border: 1px solid black; border-collapse: collapse;\n</style>\n"+
+				"<div>\n<h2>We have incorrect data</h2>\n"+
+				"%s" + "</div>\n<hr/>\n<h2>Choose correct data</h2>"+
+				"<table style=\"width:100%%; margin-right:3%%\">\n"+
+				"<tr align=\"center\">\n"+
+				"<th>DATE</th><th>TIME</th>\n<th>Room - Minsk, K3V, Forest Barbecue 1 - for Meeting</th>\n"+
+				"<th>Room - Minsk, K3V, Forest Room Red - for Meeting</th>\n"+
+				"<th>Room - Minsk, K3V, Forest Room Yellow - for Meeting</th>\n</tr>\n"+
+				"%s"+ "\n" +"</table>\n</html>";
+
+		def templateWarning ="<p style=\"color:red; font-size:20\">" + "%s" +"</p>\n";
+
+		def templateContent ="<tr align=\"center\">\n"+
+				"<td><p>"+"%s"+"</p></td>\n"+
+				"<td><p>"+"%s"+" - "+ "%s"+"</p></td>\n"+
+				"<td><p>"+"%s"+"</p></td>\n"+
+				"<td><p>"+"%s"+"</p></td>\n"+
+				"<td><p>"+"%s"+"</p></td>\n</tr>";
+		Verificator verificator = new Verificator();
+		
+		verificator.setInstance(log);  
+		
+		def seccesfulResultMap = null;
+		boolean customDataListIsEmpty = false;
+
+		if(customerDataList.size()==1 && customerDataList.get(0).size()==0) {
+
+			customDataListIsEmpty = true;
+		}
+
+		if(customDataListIsEmpty==false) {
+			log.info("User data(JSON) is not null");
+
+			seccesfulResultMap = verificator.verify(dataFromtJsonList, customerDataList);
+		}
+		else {
+			log.info("User data(JSON) is null");
+
+			sys.defineVariable("failFlag", "0");
+			sys.defineVariable("request", "");
+			sys.defineVariable("htmlPage", "");
+		}
+
+
+		if(customDataListIsEmpty==false && seccesfulResultMap.size()==customerDataList.size()){
+			log.info("User data(JSON) is correct");
+
+			sys.defineVariable("failFlag", "0");
+			sys.defineVariable("request", customerDataList);
+			sys.defineVariable("htmlPage", "");
+		}
+		else if(customDataListIsEmpty==false) {
+			log.info("User data(JSON) is not correct");
+			sys.defineVariable("failFlag", "1");
+
+			def wrongReqestList = verificator.getWrongSlotList(customerDataList, seccesfulResultMap);
+			log.info("WRONG_LIST" + wrongReqestList.toString());
+			def wellReqestList = verificator.getWellSlotList(customerDataList, seccesfulResultMap);
+			log.info("WELL_LIST" + wellReqestList.toString());
+			def createHtml = html_creater.getWrappedObject();
+			String htmlPage = createHtml.stepCreateHtmlPage(dataFromtJsonList, wrongReqestList, templateHtmlPage, templateContent, templateWarning);
+
+			sys.defineVariable("htmlPage", htmlPage);
+			sys.defineVariable("request", wellReqestList);
+		}
+
+
+		
+		public class Verificator{
+		
+			private def logger;
+
+			public setInstance(def log) {
+				this.logger = log;
+			}
+			
+			enum ROOM{
+				RED("red"),
+				YELLOW("yellow"),
+				BARBECUE("barbecue");
+
+				private String value;
+
+				ROOM(String value){
+					this.value=value;
+				}
+				String getValue(){
+					return value;
+				}
+			}
+
+			public Map verify(def inputDataList, def checkDataList){
+
+				logger.info("[LOGGER]: in 'verify' method");
+				Map customerDataList = new HashMap<>();
+				SimpleDateFormat dateFormatWF = new SimpleDateFormat("hh:mma");
+				SimpleDateFormat dateFormat = new SimpleDateFormat("hh:mm a");
+
+				logger.info("comparing user data with input data and geting Map with well data");
+				int n=0;
+				for(def chechDataMap : checkDataList){
+					inputDataList.stream()
+							.filter({r ->
+								chechDataMap.get("date")!=null &&
+										r.get("date").equals(chechDataMap.get("date")) && chechDataMap.get("start_time")!=null &&
+										dateFormat.parse(r.get("start_time")).compareTo(dateFormatWF.parse(chechDataMap.get("start_time")))!=1 &&
+										dateFormat.parse(r.get("till_time")).compareTo(dateFormatWF.parse(chechDataMap.get("start_time")))==1 &&
+										chechDataMap.get("till_time")!=null &&
+										dateFormat.parse(r.get("till_time")).compareTo(dateFormatWF.parse(chechDataMap.get("till_time")))!=-1 &&
+										dateFormat.parse(r.get("start_time")).compareTo(dateFormatWF.parse(chechDataMap.get("till_time")))==-1 &&
+										(chechDataMap.get(ROOM.BARBECUE.getValue())==null ? true : r.get("result").get(ROOM.BARBECUE.getValue())!=null) &&
+										(chechDataMap.get(ROOM.RED.getValue())==null ? true : r.get("result").get(ROOM.RED.getValue())!=null) &&
+										(chechDataMap.get(ROOM.YELLOW.getValue())==null ? true : r.get("result").get(ROOM.YELLOW.getValue())!=null) &&
+										(chechDataMap.get(ROOM.BARBECUE.getValue())==null & chechDataMap.get(ROOM.RED.getValue())==null & chechDataMap.get(ROOM.YELLOW.getValue())==null)==false
+							})
+							.forEach({s -> customerDataList.put(Integer.valueOf(n), s)});
+					n++;
+				}
+				logger.info("END verify method");
+				return customerDataList;
+			}
+
+			public List getWrongSlotList(def customerDataList, Map seccesfulResultMap){
+
+				logger.info("[LOGGER]: in 'getWrongSlotList' method");
+				List wrongReqestList = new ArrayList<>();
+
+				for(int i=0; i< customerDataList.size(); i++){
+
+					boolean checkWrong = true;
+					for(def keySeccesfulResultMap : seccesfulResultMap.keySet()){
+
+						if(!String.valueOf(i).equals(keySeccesfulResultMap.toString())){
+
+							checkWrong = false;
+						}
+					}
+
+					if(!checkWrong){
+
+						wrongReqestList.add(customerDataList.get(i));
+					}
+				}
+				return wrongReqestList;
+			}
+
+			public List getWellSlotList(def customerDataList, Map seccesfulResultMap){
+			
+				logger.info("[LOGGER]: in 'getWellSlotList' method");
+				List wellReqestList = new ArrayList<>();
+
+				for(int i=0; i< customerDataList.size(); i++){
+
+					boolean checkWell = false;
+					for(def keySeccesfulResultMap : seccesfulResultMap.keySet()){
+
+						if(String.valueOf(i).equals(keySeccesfulResultMap.toString())){
+
+							checkWell = true;
+						}
+					}
+
+					if(checkWell){
+
+						wellReqestList.add(customerDataList.get(i));
+					}
+				}
+				return wellReqestList;
+			}
+		}
+	]]></script>
+	<export include-original-data="false">
+		<single-column name="input_json" value="${field_json}"></single-column>
+		<single-column name="flag_well_json" value="${failFlag}"></single-column>
+		<case>
+			<if condition="${htmlPage.toString() != ''}">
+				<single-column name="fail_htmlpage" value="${htmlPage}"></single-column>
+			</if>
+		</case>
+		<single-column name="positive_request" value="${request}"></single-column>
+	</export>
+
+</config>

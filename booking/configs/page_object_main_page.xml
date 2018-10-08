@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://web-harvest.sourceforge.net/schema/1.0/config"
+	scriptlang="groovy">
+
+	<script><![CDATA[
+		public class MainPageActions {
+			private WebDriver driver;
+			private def logger;
+			private def utils;
+			private MainPageElements mainPageElements;
+			private def credentials;
+
+			public MainPageActions() {
+			}
+			
+			public setInstance(WebDriver driver, def log, def utils, def credentials) {
+				this.driver = driver;
+				this.logger = log;
+				this.utils = utils;
+				mainPageElements = new MainPageElements(utils);
+				this.credentials = credentials;
+			}
+
+			public void pressCalendarIcon(def utils) {
+				logger.info ("STEP: Open calendar");
+				mainPageElements.getButtonCalendar().click();
+				logger.info ("STEP: Open calendar - FINISHED SUCCESSFUL");
+			}
+			
+			public void openInbox(){
+				logger.info("STEP: open Inbox")
+				mainPageElements.getButtonInbox().click()
+				logger.info("STEP: open Inbox - FINISHED SUCCESSFUL")
+			}
+			public static void main(String[] args) {
+			}
+		}
+	
+		public class MainPageElements {
+			private def utils;
+			public MainPageElements(def utils) {
+				this.utils=utils;
+			}
+
+			public MainPageElements() {
+			}
+			
+			public WebElement getButtonInbox(){
+				return utils.waitElementToBeClickable(By.xpath("//div[@aria-label='Folder Pane']//span[@title='Inbox']/parent::*"))
+			}
+
+			public WebElement getButtonCalendar() {
+				return utils.hardWait(By.xpath("//button[@title='Calendar']"));
+			}
+
+		}
+
+		sys.defineVariable("main_page_actions", new MainPageActions());
+	]]></script>
+
+	<export include-original-data="false">
+	</export>
+
+</config>

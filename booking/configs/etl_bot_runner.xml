@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://web-harvest.sourceforge.net/schema/1.0/config">
+
+	<var-def name="from_time_and_date">
+		{{from_time_and_date}}
+	</var-def>
+
+	<var-def name="end_time_and_date">
+		{{end_time_and_date}}
+	</var-def>
+
+	<var-def name="user_email">
+		{{user_email}}
+	</var-def>
+
+	<var-def name="user_password">
+		{{user_password}}
+	</var-def>
+	
+	<var-def name="persons_emails">
+		{{persons_emails}}
+	</var-def>
+	
+	<var-def name="persons_names">
+		{{persons_names}}
+	</var-def>
+
+	<create-datastore name="search_data">
+		<datastore-column name="from_time_and_date"/>
+		<datastore-column name="end_time_and_date"/>
+		<datastore-column name="user_email"/>
+		<datastore-column name="user_password"/>
+		<datastore-column name="persons_emails"/>
+		<datastore-column name="persons_names"/>
+	</create-datastore>
+	
+	<script><![CDATA[
+		Map insertedParamMap = new HashMap();
+		insertedParamMap.put("from_time_and_date", from_time_and_date.toString());
+		insertedParamMap.put("end_time_and_date", end_time_and_date.toString());
+		insertedParamMap.put("user_email", user_email.toString());
+		insertedParamMap.put("user_password", user_password.toString());
+		insertedParamMap.put("persons_emails", persons_emails.toString());
+		insertedParamMap.put("persons_names", persons_names.toString());
+		jsonEmail = new com.google.gson.Gson().toJson(insertedParamMap);
+	]]></script>
+
+	<insert-datastore datastore-name="search_data"
+		json-value-map="${jsonEmail}">
+	</insert-datastore>
+	
+
+	<export include-original-data="true">
+		<single-column name="from_time_and_date" value="${from_time_and_date}" />
+		<single-column name="end_time_and_date" value="${end_time_and_date}" />
+		<single-column name="user_email" value="${user_email}" />
+		<single-column name="user_password" value="${user_password}" />
+		<single-column name="persons_emails" value="${persons_emails}" />
+		<single-column name="persons_names" value="${persons_names}" />
+	</export>
+</config>

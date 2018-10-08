@@ -1,0 +1,22 @@
+{
+	"Tours": 
+	[
+		{ 	
+			"TourType": "RelaxTour",
+			"StartDate": "13.12.2017",
+			"Length": 7 ,
+			"Price": 13.12 ,
+			"MealType": "BB" ,
+			"TransportType": "Plane"
+		}, 
+		{ 	
+			"TourType": "RelaxTour",
+			"StartDate": "13.12.2017",
+			"Length": 7 ,
+			"Price": 13.12 ,
+			"MealType": "UAI",
+			"TransportType": "Plane"			
+		}
+
+	]
+ }

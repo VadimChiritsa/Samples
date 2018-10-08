@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://web-harvest.sourceforge.net/schema/1.0/config"
+	scriptlang="groovy">
+
+	<script><![CDATA[
+		import javax.crypto.Mac;
+		import javax.crypto.spec.SecretKeySpec;
+		import java.security.InvalidKeyException;
+		import java.security.NoSuchAlgorithmException;
+		import java.security.SignatureException;
+		import java.util.Base64;
+		import java.util.Formatter;
+		import java.net.URLEncoder;
+		import java.security.MessageDigest;
+		import java.security.spec.KeySpec;
+		import java.util.Locale;
+		import javax.crypto.SecretKey;
+		import java.util.Date;
+		import javax.net.ssl.HttpsURLConnection;
+		import java.net.HttpURLConnection;
+		import java.net.URL;
+
+		public class ApiServiceMoz{
+
+			private def logger;
+			private def columnsTitles;
+			//url metrics values for cols
+			private long domainAuthority=68719476736;
+			private long linkingDomainsRootDomain=2251799813685248;
+			private long inboundLinksRootDomain=8192;
+			private long linkingDomainsSubDomain=140737488355328;
+			private long inboundLinksSubDomain=4096;
+			private String finalJSON="";
+			private List informationList;
+			private List inputListOfLinks;
+			private String accessID;
+			private String secretKey;
+			private String cols;
+			private String expires;
+			private String signature;
+
+
+			public ApiServiceMoz() {
+			}
+			public static void main(String[] args) {
+			}
+
+			public setInstance(String accessID, String secretKey, def log, def columnsTitles){
+				this.logger = log;
+				this.columnsTitles = columnsTitles;
+				this.accessID=accessID;
+				this.secretKey=secretKey;
+				this.cols=getColsMetrics(domainAuthority,linkingDomainsRootDomain,inboundLinksRootDomain,linkingDomainsSubDomain,inboundLinksSubDomain);
+				this.expires=getExpires();
+				this.signature=getUrlSafeSignature(accessID, secretKey, expires);
+			}
+
+			public void collectData(List inputListOfLinks){
+				this.inputListOfLinks=inputListOfLinks;
+				for(json in getListOfJsonsWithLinks(inputListOfLinks)){
+					String query = "https://lsapi.seomoz.com/linkscape/url-metrics/?AccessID=${accessID}&Expires=${expires}&Signature=${signature}&Cols=${cols}";
+					URL url = new URL(query);
+					HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+					conn.setConnectTimeout(5000);
+					conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+					conn.setDoOutput(true);
+					conn.setDoInput(true);
+					conn.setRequestMethod("POST");
+
+					OutputStream os = conn.getOutputStream();
+					os.write(json.toString().getBytes("UTF-8"));
+					os.close();
+
+					// read the response
+					InputStream inStr = new BufferedInputStream(conn.getInputStream());
+					String result = org.apache.commons.io.IOUtils.toString(inStr, "UTF-8");
+					inStr.close();
+					conn.disconnect();
+
+					fillFinalJSON(result)
+				}
+				createListOfMapsWithCollectedInformation();
+			}
+
+			public List getListOfCollectedInformation(){
+				return informationList;
+			}
+
+			//fill final json from response jsons
+			private void fillFinalJSON(String result){
+				if(!finalJSON.toString().equals("")){
+					finalJSON=finalJSON.toString().substring(0, finalJSON.toString().length()-1) +","+ result.substring(1);
+				}else{
+					finalJSON=finalJSON + result;
+				}
+			}
+
+			//separate links on jsons with 10 links, because request might be too long
+			private List getListOfJsonsWithLinks(List inputListOfLinks){
+				List listOfJsonLinks = new ArrayList()
+				List list=new ArrayList()
+				int count=0;
+				for(link in inputListOfLinks){
+					list.add(link.toString())
+					count++;
+					if(count>9){
+						String json = new com.google.gson.Gson().toJson(list);
+						listOfJsonLinks.add(json);
+						list=new ArrayList();
+						count=0;
+					}
+				}
+				if (list.size()>0) {
+					String json = new com.google.gson.Gson().toJson(list);
+					listOfJsonLinks.add(json);
+				}
+				return listOfJsonLinks;
+			}
+
+			//return metrics for api
+			private String getColsMetrics(long domainAuthority, long linkingDomainsRootDomain, long inboundLinksRootDomain, long linkingDomainsSubDomain, long inboundLinksSubDomain){
+				long cols = linkingDomainsRootDomain + domainAuthority + inboundLinksRootDomain + inboundLinksSubDomain + linkingDomainsSubDomain;
+				return cols.toString();
+			}
+
+			//time, for which key is available
+			private String getExpires(){
+				long time = (System.currentTimeMillis()/1000)+300;
+				return time.toString();
+			}
+
+			//return signature for api
+			private String getUrlSafeSignature(String accessID, String secretKey, String expires){
+				String toSign = accessID.toString() + "\n"+ expires.toString();
+				SecretKeySpec signingKey = new SecretKeySpec(secretKey.toString().getBytes(), "HmacSHA1");
+
+				// get an hmac_sha1 Mac instance and initialize with the signing key
+				Mac mac = null;
+
+				try {
+					mac = Mac.getInstance("HmacSHA1");
+					mac.init(signingKey);
+				}
+				catch (NoSuchAlgorithmException e) {
+					e.printStackTrace();
+					return "";
+				}
+				catch (InvalidKeyException e) {
+					e.printStackTrace();
+					return "";
+				}
+				// compute the hmac on input data bytes
+				byte[] rawHmac = mac.doFinal(toSign.getBytes());
+				// base64-encode the hmac
+				String urlSafeSignature = URLEncoder.encode(Base64.getEncoder().encodeToString(rawHmac)).toString();
+				return urlSafeSignature;
+			}
+
+			//parse information from final json to list of maps
+			private void createListOfMapsWithCollectedInformation(){
+				List parsedJson= new groovy.json.JsonSlurper().parseText(finalJSON.toString())
+				informationList=new ArrayList();
+				Map informationMap;
+				for(int i=0;i<parsedJson.size();i++){
+					informationMap=new HashMap();
+					informationMap.put(columnsTitles.URL,inputListOfLinks.get(i).toString())
+					informationMap.put(columnsTitles.DOMAIN_AUTHORITY_ROOT_DOMAIN,Integer.valueOf(parsedJson.get(i).get("pda"))/100)
+					informationMap.put(columnsTitles.LINKING_DOMAINS_ROOT_DOMAIN,parsedJson.get(i).get("pid").toString())
+					informationMap.put(columnsTitles.INBOUND_LINKS_ROOT_DOMAIN,parsedJson.get(i).get("ped").toString())
+					informationMap.put(columnsTitles.DOMAIN_AUTHORITY_SUB_DOMAIN,Integer.valueOf(parsedJson.get(i).get("pda"))/100)
+					informationMap.put(columnsTitles.LINKING_DOMAINS_SUB_DOMAIN,parsedJson.get(i).get("fid").toString())
+					informationMap.put(columnsTitles.INBOUND_LINKS_SUB_DOMAIN,parsedJson.get(i).get("fed").toString())
+					logger.info(informationMap.toString())
+					informationList.add(informationMap)
+				}
+			}
+		}
+		sys.defineVariable("api_service_moz", new ApiServiceMoz())
+	]]></script>
+
+	<export include-original-data="true"></export>
+
+</config>

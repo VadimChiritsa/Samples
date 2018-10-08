@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://web-harvest.sourceforge.net/schema/1.0/config"
+	scriptlang="groovy">
+
+	<script><![CDATA[
+		public class DataForBooking{
+			public static void main(String[] args) {}
+
+			private List meetings;
+			private Map meeting_map;
+			private List list_rooms;
+			private def parse_json_positive;
+			private def parse_json_slot;
+			private def logger;
+			private def credentials;
+			private int flag_well_json;
+
+			public setInstance(def log, def credentials) {
+				this.logger = log;
+				this.credentials = credentials;
+				this.flag_well_json=1;
+			}
+
+			public void parseData(def json_slot=null, def json_positive){
+				logger.info("METHOD: parse data")
+				meetings=new ArrayList();
+				//parsing json
+				if(json_slot==null){
+					if(!json_positive.toString().equals('[]')){
+						logger.info("JSON_SLOT - NULL, JSON_POSITIVE - well")
+						parse_json_positive= new groovy.json.JsonSlurper().parseText(json_positive.toString())
+						fillMeetingsList(parse_json_positive)
+					} else {
+						flag_well_json=0;
+					}
+				} else if(!json_slot.toString().equals('{"slot":[{}]}') && !json_positive.toString().equals('[]')){
+					logger.info("JSON_SLOT - well, JSON_POSITIVE - well")
+					parse_json_positive= new groovy.json.JsonSlurper().parseText(json_positive.toString())
+					fillMeetingsList(parse_json_positive)
+					parse_json_slot= new groovy.json.JsonSlurper().parseText(json_slot.toString())
+					fillMeetingsList(parse_json_slot.get("slot"))
+				} else if (!json_slot.toString().equals('{"slot":[{}]}') && json_positive.toString().equals('[]')){
+					logger.info("JSON_SLOT - well, JSON_POSITIVE - empty")
+					parse_json_slot= new groovy.json.JsonSlurper().parseText(json_slot.toString())
+					fillMeetingsList(parse_json_slot.get("slot"))
+				} else if(json_slot.toString().equals('{"slot":[{}]}') && !json_positive.toString().equals('[]')){
+					logger.info("JSON_SLOT - empty, JSON_POSITIVE - well")
+					parse_json_positive= new groovy.json.JsonSlurper().parseText(json_positive.toString())
+					fillMeetingsList(parse_json_positive)
+				} else if(json_slot.toString().equals('{"slot":[{}]}') && json_positive.toString().equals('[]')){
+					logger.info("JSON_SLOT - empty, JSON_POSITIVE - empty")
+					flag_well_json=0;
+				}
+				logger.info("METHOD: parse data - FINISHED SUCCESSFUL")
+			}
+
+			public int getFlagWellJson() {
+				logger.info("METHOD: get flag well json: " + flag_well_json.toString())
+				return flag_well_json;
+			}
+
+			public List getMeetingsList() {
+				logger.info("METHOD: get meetings list: " + meetings.toString())
+				return meetings;
+			}
+
+			public Integer getMeetingsListSize() {
+				logger.info("METHOD: get meetings list size: "+ meetings.size().toString())
+				return meetings.size();
+			}
+
+			private void fillMeetingsList(def parse_json){
+				//creating map with all information about one meeting
+				for(meeting in parse_json){
+					meeting_map = new HashMap();
+					meeting_map.put("day", getDay(meeting.get("date").toString()))
+					meeting_map.put("month", getMonth(meeting.get("date").toString()))
+					meeting_map.put("startTime", getTime(meeting.get("start_time").toString()))
+					meeting_map.put("endTime", getTime(meeting.get("till_time").toString()))
+					meeting_map.put("rooms", getRoomsName(
+							meeting.get("barbecue").toString(),
+							meeting.get("red").toString(),
+							meeting.get("yellow").toString()))
+
+					meetings.add(meeting_map)
+				}
+			}
+
+			private String getDay(String str){
+				return str.split("/")[2]+","
+			}
+
+			private String getMonth(String str){
+				return str.split("/")[1]
+			}
+
+			private List getRoomsName(String roomBarbecue, String roomRed, String roomYellow){
+				list_rooms=new ArrayList()
+				//parse json data for rooms
+				if(roomRed.equalsIgnoreCase("1")){
+					list_rooms.add(credentials.ROOM_RED)
+				}
+				if(roomBarbecue.equalsIgnoreCase("1")){
+					list_rooms.add(credentials.ROOM_BARBECUE)
+				}
+				if(roomYellow.equalsIgnoreCase("1")){
+					list_rooms.add(credentials.ROOM_YELLOW)
+				}
+				return list_rooms
+			}
+
+			private String getTime(String time){
+				//add space between number and format (11:00 PM)
+				int length=time.length()
+				return time.substring(0,length-2)+" " + time.substring(length-2,length)
+			}
+		}
+
+		sys.defineVariable("data_for_booking", new DataForBooking());
+	]]></script>
+
+
+
+	<export include-original-data="true"></export>
+
+</config>

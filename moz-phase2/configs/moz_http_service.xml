@@ -1,0 +1,367 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://web-harvest.sourceforge.net/schema/1.0/config"
+	scriptlang="groovy">
+
+	<script><![CDATA[
+		import java.util.ArrayList;
+		import java.util.List;
+		import java.util.LinkedList;
+		import org.openqa.selenium.Cookie;
+		import java.net.HttpURLConnection;
+		import java.net.MalformedURLException;
+		import java.net.URL;
+		import java.util.HashMap;
+		import java.util.HashSet;
+		import org.json.JSONArray;
+		import org.json.JSONObject;
+		import java.text.ParseException;
+		import java.text.SimpleDateFormat;
+
+		public class APIProperties {
+			public static final Long PERIOD = 60 * 24 * 3600 * 1000L; //days*hours*seconds*milliseconds == duration of gathering data
+			public static final long DELAY = 1_000; //delay beetwen http requests, ms
+
+			//column titles, which is put to datastore
+			public static final String AUTHORITY_COLUMN_TITLE = "authority";
+			public static final String INBOUND_COLUMN_TITLE = "inbound";
+			public static final String LINKING_COLUMN_TITLE = "linking";
+			public static final String NET_COLUMN_TITLE = "NET";
+			public static final String DISCOVERED_COLUMN_TITLE = "DISCOVERED";
+			public static final String LOST_COLUMN_TITLE = "LOST";
+
+			public static void main(String[] args) throws IOException {
+			}
+		}
+
+		public abstract class APITags {
+			public static final String HOST = "www.moz.com";
+			//responce from server with idintefiers for date and count value
+			public static final String QTY_PSEUDONIM = "count";
+			public static final String DATE_PSEUDONIM = "date";
+
+			//between LINK_STARTS and LINK_ENDS code put current web-site and all this is equal to API enquery
+			public static final String LINK_STARTS = "https://analytics.moz.com/listerine/api/1.4/idina/url_metrics?site=";
+			public static final String LINK_ENDS = "&daily_history=plds_to_pld%2Bplds_to_fqdn%2Bplds_to_url&distributions=true&include_keyword_counts[]=domain&version=1";
+
+			//responce from server with idintefiers for domain_authority for root domain
+			public static final String DOMAIN_AUTHORITY = "domain_authority";
+
+			//There are fields, which values depends on Domain type
+			protected String lostLinksPseudomin;
+			protected String discoveredLinksPseudonim;
+			protected String linkingPseudonim;
+			protected String inboundPseudomin;
+			protected String type;
+
+			public String getLostLinksPseudomin() {
+				return lostLinksPseudomin;
+			}
+
+			public String getDiscoveredLinksPseudonim() {
+				return discoveredLinksPseudonim;
+			}
+
+			public String getLinkingPseudonim() {
+				return linkingPseudonim;
+			}
+
+			public String getInboundPseudomin() {
+				return inboundPseudomin;
+			}
+
+			public String getType() {
+				return type;
+			}
+
+			public static void main(String[] args) {
+			}
+		}
+
+		public class RootDomainAPITags extends APITags {
+			public RootDomainAPITags() {
+				lostLinksPseudomin = "plds_to_pld_lost";
+				discoveredLinksPseudonim = "plds_to_pld_gained";
+				linkingPseudonim = "plds_to_pld";
+				inboundPseudomin = "external_urls_to_pld";
+				type = "rootdomain";
+			}
+
+			public static void main(String[] args) {
+			}
+		}
+
+		public class SubDomainAPITags extends APITags {
+			public SubDomainAPITags() {
+				lostLinksPseudomin = "plds_to_fqdn_lost";
+				discoveredLinksPseudonim = "plds_to_fqdn_gained";
+				linkingPseudonim = "plds_to_fqdn";
+				inboundPseudomin = "external_urls_to_fqdn";
+				type = "subdomain";
+			}
+
+			public static void main(String[] args) {
+			}
+		}
+
+		public class ExactPageAPITags extends APITags {
+			public ExactPageAPITags() {
+				lostLinksPseudomin = "plds_to_url_lost";
+				discoveredLinksPseudonim = "plds_to_url_gained";
+				linkingPseudonim = null;
+				inboundPseudomin = null;
+				type = "exactPage";
+			}
+
+			public static void main(String[] args) {
+			}
+		}
+
+		public class APITagsDomainFactory {
+			public static void main(String[] args) {
+			}
+
+			public static List<APITags> getDomainList() {
+				List<APITags> list = new LinkedList<>();
+				list.add(new RootDomainAPITags());
+				list.add(new SubDomainAPITags());
+				list.add(new ExactPageAPITags());
+				return list;
+			}
+
+			public static List<APITags> getRootAndSubDomainList() {
+				List<APITags> list = new LinkedList<>();
+				list.add(new RootDomainAPITags());
+				list.add(new SubDomainAPITags());
+				return list;
+			}
+		}
+
+		public class HTTPRequester {
+			private logger;
+			private HashSet<Cookie> cookies;
+
+			public HTTPRequester(def logger) {
+				this.logger = logger;
+			}
+
+			public void setCookies(HashSet<Cookie> cookies) {
+				this.cookies = cookies;
+			}
+
+			public HashMap connect(String link)  {
+				HashMap<String, HashMap> result = null;
+				sleep(); //connecntion per second limit
+				URL url;
+				String currentURL = APITags.LINK_STARTS + link + APITags.LINK_ENDS;
+
+				url = new URL(currentURL);
+
+				HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+				String cookie = makeStringCfCookies(cookies);
+				conn.setRequestProperty("Cookie", cookie);
+				conn.addRequestProperty("User-Agent", "Chrome");
+				conn.setReadTimeout(15 * 1000);
+				conn.setUseCaches(true);
+				conn.setDoOutput(false);
+				conn.setDoInput(true);
+				conn.setRequestMethod("GET");
+				conn.setRequestProperty("Host", APITags.HOST);
+				conn.connect();
+				conn.setInstanceFollowRedirects(true);
+
+				int status;
+				BufferedReader br = null;
+
+				status = conn.getResponseCode();
+				logger.info("responce code: " + status);
+				if (status > 300) {
+					br = new BufferedReader(new InputStreamReader(conn.getErrorStream()));
+				} else {
+					br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+				}
+				String inputLine;
+				while ((inputLine = br.readLine()) != null) {
+					if (status>300) {
+						log.info(inputLine).toString();
+					} else {
+						JSONParser jsonParser = new JSONParser(inputLine, link, logger);
+						result = jsonParser.run();
+					}
+				}
+				br.close();
+				conn.disconnect();
+				return result;
+			}
+
+			private String makeStringCfCookies (HashSet<Cookie> cookies) {
+				String string = "";
+				for (Cookie cookie : cookies) {
+					String name = cookie.getName();
+					String value = cookie.getValue();
+					string = string + name + "=" + value + ";";
+				}
+				return string;
+			}
+
+			private void sleep() {
+				Thread.sleep(APIProperties.DELAY);
+			}
+
+			public static void main(String[] args) throws IOException {
+			}
+
+		}
+
+		public class JSONParser {
+
+			private String responce;
+			private String link;
+			private List<APITags> domainTypes;
+			private logger;
+
+			public JSONParser(String responce, String link, def logger) {
+				this.responce = responce;
+				this.link=link;
+				this.logger = logger;
+			}
+			
+			public JSONParser() {
+			}
+
+			public HashMap run() {
+				domainTypes = APITagsDomainFactory.getRootAndSubDomainList();
+				HashMap<String, HashMap> domainsMap = new HashMap<>();
+				for (domain in domainTypes) {
+					domainsMap.put(domain.getType(), getValuesForColumn(domain));
+				}
+				return domainsMap;
+			}
+
+			public HashMap getValuesForColumn(def domain) {
+				HashMap<String, String> valuesMap =new LinkedHashMap<>();
+				JSONObject json = new JSONObject(responce);
+				JSONArray jsonLostArray = new JSONArray(json.get(domain.getLostLinksPseudomin()).toString());
+				String authority =((double)json.get(domain.DOMAIN_AUTHORITY)/100).toString();
+				String linking = json.get(domain.getLinkingPseudonim()).toString();
+				String inbound = json.get(domain.getInboundPseudomin()).toString();
+				JSONArray jsonDiscoveredArray = new JSONArray(json.get(domain.getDiscoveredLinksPseudonim()).toString());
+				int lost = calculateSum(jsonLostArray);
+				int discovered = calculateSum(jsonDiscoveredArray);
+				logger.info("LINK : [" + link + "], DOMAIN: [" + domain.getType() + "], AUTORITY: [" + authority + "], LINKING: [" + linking + "], INBOUND: [" + inbound + "] DISCOVERED: [" + discovered + "], LOST: [" + lost + "], NET: [" + (discovered - lost) + "]");
+				valuesMap.put(APIProperties.AUTHORITY_COLUMN_TITLE, ""+authority);
+				valuesMap.put(APIProperties.INBOUND_COLUMN_TITLE, ""+inbound);
+				valuesMap.put(APIProperties.LINKING_COLUMN_TITLE, ""+linking);
+				valuesMap.put(APIProperties.DISCOVERED_COLUMN_TITLE, ""+discovered);
+				valuesMap.put(APIProperties.LOST_COLUMN_TITLE, ""+lost);
+				valuesMap.put(APIProperties.NET_COLUMN_TITLE, ""+(discovered-lost));
+				return valuesMap;
+			}
+
+			private int calculateSum(JSONArray jsonArray) {
+				int sum = 0;
+				for (int i = 0; i < jsonArray.length(); i++) {
+					String currentDate = jsonArray.getJSONObject(i).get(APITags.DATE_PSEUDONIM).toString();
+					if (isValidDate(currentDate)) {
+						int currentDateValue = Integer.parseInt(jsonArray.getJSONObject(i).get(APITags.QTY_PSEUDONIM).toString());
+						sum += currentDateValue;
+					}
+				}
+				return sum;
+			}
+
+			private boolean isValidDate(String date) {
+				SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
+				Calendar calendar = new GregorianCalendar();
+				Date currentDate=null;
+				currentDate = simpleDateFormat.parse(simpleDateFormat.format(calendar.getTime()));
+				calendar.setTime(currentDate);
+				long currentDateMillis = calendar.getTimeInMillis();
+				calendar.setTime(simpleDateFormat.parse(date));
+				long dateMillis = calendar.getTimeInMillis();
+				return (currentDateMillis - dateMillis) < APIProperties.PERIOD;
+			}
+
+			public static void main(String[] args) throws IOException {
+			}
+		}
+
+		public class Executor {
+			private HTTPRequester httpRequester;
+			private HashMap<String, HashMap> result;
+			private List<HashMap> resultToDatastore;
+			private def logger;
+			private List<String> listUrls;
+			private HashMap<String, HashMap> hashMapDataStore;
+			private def properties;
+			private def columnsTitles;
+
+			//domains
+			private RootDomainAPITags rootDomain = new RootDomainAPITags();
+			private SubDomainAPITags subDomain = new SubDomainAPITags();
+
+			public static void main(String[] args) throws IOException {
+			}
+
+			public List<HashMap> getResult() {
+				return resultToDatastore;
+			}
+
+			public void setInstance(def log, def listUrls, def properties, def columnsTitles) {
+				this.logger = log;
+				this.listUrls = listUrls;
+				this.properties = properties;
+				this.columnsTitles=columnsTitles;
+			}
+
+			public void launchRequest(HashSet<Cookie> hashSet) throws IOException {
+				httpRequester = new HTTPRequester(logger);
+				httpRequester.setCookies(hashSet);
+				makeRequest();
+			}
+
+			public void makeRequest() throws IOException {
+				result = new HashMap<>();
+				resultToDatastore = new ArrayList();
+				for (String link:listUrls) {
+					logger.info(link);
+					Map<String, HashMap> currentLinkMap = httpRequester.connect(link);
+					createListOfMapsWithCollectedInformation(link, currentLinkMap);
+					result.put(link, currentLinkMap);
+				}
+				logger.info("FINAL LIST: ["+resultToDatastore+"]");
+			}
+
+			private void createListOfMapsWithCollectedInformation(String link, Map<String,HashMap> currentLink){
+				Map informationMap = new LinkedHashMap();
+				informationMap.put(columnsTitles.URL, link);
+				//fill data for rootDomain
+				informationMap.put(columnsTitles.DOMAIN_AUTHORITY_ROOT_DOMAIN, currentLink.get(rootDomain.getType()).get(APIProperties.AUTHORITY_COLUMN_TITLE));
+				informationMap.put(columnsTitles.INBOUND_LINKS_ROOT_DOMAIN, currentLink.get(rootDomain.getType()).get(APIProperties.INBOUND_COLUMN_TITLE));
+				informationMap.put(columnsTitles.LINKING_DOMAINS_ROOT_DOMAIN, currentLink.get(rootDomain.getType()).get(APIProperties.LINKING_COLUMN_TITLE));
+				informationMap.put(columnsTitles.JUST_DISCOVERED_ROOT_DOMAIN, currentLink.get(rootDomain.getType()).get(APIProperties.DISCOVERED_COLUMN_TITLE));
+				informationMap.put(columnsTitles.LOST_ROOT_DOMAIN, currentLink.get(rootDomain.getType()).get(APIProperties.LOST_COLUMN_TITLE));
+				informationMap.put(columnsTitles.NET_ROOT_DOMAIN, currentLink.get(rootDomain.getType()).get(APIProperties.NET_COLUMN_TITLE));
+				//fill data for subDomain
+				informationMap.put(columnsTitles.DOMAIN_AUTHORITY_SUB_DOMAIN, currentLink.get(subDomain.getType()).get(APIProperties.AUTHORITY_COLUMN_TITLE));
+				informationMap.put(columnsTitles.INBOUND_LINKS_SUB_DOMAIN, currentLink.get(subDomain.getType()).get(APIProperties.INBOUND_COLUMN_TITLE));
+				informationMap.put(columnsTitles.LINKING_DOMAINS_SUB_DOMAIN, currentLink.get(subDomain.getType()).get(APIProperties.LINKING_COLUMN_TITLE));
+				informationMap.put(columnsTitles.JUST_DISCOVERED_SUB_DOMAIN, currentLink.get(subDomain.getType()).get(APIProperties.DISCOVERED_COLUMN_TITLE));
+				informationMap.put(columnsTitles.LOST_SUB_DOMAIN, currentLink.get(subDomain.getType()).get(APIProperties.LOST_COLUMN_TITLE));
+				informationMap.put(columnsTitles.NET_SUB_DOMAIN, currentLink.get(subDomain.getType()).get(APIProperties.NET_COLUMN_TITLE));
+				resultToDatastore.add(informationMap)
+			}
+		}
+		HashMap objectsMap = new HashMap();
+		objectsMap.put("Executor", new Executor());
+		objectsMap.put("JSONParser", new JSONParser());
+		objectsMap.put("HTTPRequester", new HTTPRequester());
+		objectsMap.put("ExactPageAPITags", new ExactPageAPITags());
+		objectsMap.put("RootDomainAPITags", new RootDomainAPITags());
+		objectsMap.put("SubDomainAPITags", new SubDomainAPITags());
+		objectsMap.put("APIProperties", new APIProperties());
+		
+		sys.defineVariable("http_only_service_moz", objectsMap);
+	]]></script>
+	<export include-original-data="true"></export>
+
+</config>

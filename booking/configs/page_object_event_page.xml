@@ -1,0 +1,406 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://web-harvest.sourceforge.net/schema/1.0/config"
+	scriptlang="groovy">
+
+	<script><![CDATA[
+		import java.text.DateFormat;
+		import java.util.Date;
+		import java.text.SimpleDateFormat;
+		public class EventPageActions {
+			private WebDriver driver;
+			private def logger;
+			private def utils;
+			private EventPageElements eventPageElements;
+			private def credentials;
+
+
+			public EventPageActions() {
+			}
+			public static void main(String[] args) {
+			}
+
+			public setInstance(WebDriver driver, def log, def utils, def credentials) {
+				this.driver = driver;
+				this.logger = log;
+				this.utils = utils;
+				eventPageElements = new EventPageElements (utils);
+				this.credentials = credentials;
+			}
+
+			public void addAttendee() {
+				logger.info ("STEP: open people invitation form");
+				eventPageElements.getButtonAddAttendes().click();
+				logger.info ("STEP: open people invitation form - FINISHED SUCCESSFUL");
+			}
+
+			public LinkedHashMap findTimeRange(ArrayList rooms, String fromTime, String fromDate,  String tillDate,  String eventFirstStartTime, String eventFinishTime ) {
+				logger.info ("STEP: start scrape schedule for the current objects: " + rooms + " from date: " + fromDate + " till date: " + tillDate);
+				LinkedHashMap searchResult = checkSchedule(fromDate, fromTime, tillDate, eventFirstStartTime, eventFinishTime, rooms);
+				logger.info ("STEP: start scrape schedule for the current objects: " + rooms + " from date: " + fromDate + " till date: " + tillDate + " - FINISHED SUCCESSFUL");
+				return searchResult;
+			}
+
+			public void fillDataAndSendRequest(List meetings,def calendar){
+
+				for(meeting in meetings){
+
+					calendar.clickOnMonth(meeting.get('month'))
+					calendar.clickOnDate(meeting.get('day'),meeting.get('month'))
+					calendar.addEvent()
+
+					fillTitleMeeting("Team building")
+					fillLocation(meeting.get("rooms"))
+					fillTime(meeting.get('startTime'),meeting.get('endTime'))
+
+					clickSendButton()
+				}
+			}
+
+			private void fillTitleMeeting(String title){
+				logger.info("STEP: fill meeting title")
+				eventPageElements.getInputAreaForTitleMeeting().sendKeys(title)
+				logger.info("STEP: fill meeting title - FINISHED SUCCESSFUL")
+			}
+
+			private void clickSendButton(){
+				logger.info("STEP: click send button")
+				sleep(2000)
+				eventPageElements.getButtonSend().click()
+				sleep(2000)
+				logger.info("STEP: click send button - FINISHED SUCCESSFUL")
+			}
+
+			private void fillLocation(List rooms){
+				logger.info("STEP: fill location")
+				for(roomName in rooms){
+					eventPageElements.getInputAreaForLocationMeeting().sendKeys("${roomName}")
+					sleep(1500)  //it sleep has to placed here because server need to time to update current room
+					eventPageElements.getElementParticularLocation().click()
+				}
+				logger.info("STEP: fill location - FINISHED SUCCESSFUL")
+			}
+
+			//add sender to mail box and send event or close event page
+			def void addSender( Actions keyAction, String actionType, String time) {
+				logger.info ("STEP: add Sender");
+				eventPageElements.getStartTimeArrow();
+				if(isTheRequiredTime(time)) {
+					//add user to sender box
+					(eventPageElements.getMailBox()).sendKeys(credentials.EMAIL);
+					//send mail
+					(eventPageElements.sendButton()).click();
+				} else {
+					//get back to day page list
+					(eventPageElements.getRetunToDayPageButton()).click();
+				}
+				logger.info ("STEP: add Sender - FINISHED SUCCESSFUL");
+
+			}
+
+			//delete event or close event page
+			def void deleteEvent( Actions keyAction, String actionType, String time) {
+				logger.info ("STEP: delete event");
+				eventPageElements.getStartTimeArrowButton();
+				if(eisTheRequiredTime(time)) {
+					//click on cancel arrow
+					(eventPageElements.getCancelArrowButton()).sendKeys(credentials.EMAIL);
+					//send mail
+					(eventPageElements.getCancelButton()).click();
+				} else {
+					//get back to day page list
+					(eventPageElements.getRetunToDayPageButton()).click();
+				}
+				logger.info ("STEP: delete event - FINISHED SUCCESSFUL");
+			}
+
+			private fillTime(String startTime, String endTime){
+				logger.info("STEP: fill time")
+				eventPageElements.getInputAreaForStartTimeMeeting().clear()
+				eventPageElements.getInputAreaForStartTimeMeeting().sendKeys("${startTime}")
+				eventPageElements.getInputAreaForEndTimeMeeting().clear()
+				eventPageElements.getInputAreaForEndTimeMeeting().sendKeys("${endTime}")
+				logger.info("STEP: fill time - FINISHED SUCCESSFUL")
+			}
+
+			private LinkedHashMap checkSchedule(String fromDate, String fromTime, String tillDate, String eventFirstStartTime, String eventFinishTime, ArrayList<String> rooms) {
+				String currentDate = fromDate;
+				String currentTime = eventFirstStartTime;
+				enterStartDate(fromDate);
+				LinkedHashMap<String, HashMap> dateMap = new LinkedHashMap(); //Map with all data result
+				boolean isFinishDateExceeded = false;
+				while (!isFinishDateExceeded) {
+					LinkedHashMap timesMap = new LinkedHashMap(); //Map with all time slots for current date
+					timesMap = checkTime(fromTime, eventFinishTime, currentTime, timesMap, rooms);
+					String year = getYear();
+					logger.info ("result of search for date: " + year+currentDate.toString() + " equals to: "+timesMap);
+					dateMap.put(year+currentDate.toString(), timesMap);
+					if (currentDate.equals(tillDate)) {
+						isFinishDateExceeded = true;
+					}
+					if (!isFinishDateExceeded) {
+						currentDate=pressNextDay(year+currentDate);
+						currentTime = fromTime;
+					}
+				}
+				return dateMap;
+			}
+
+			private void enterStartDate(String fromDate) {
+				sleep(2000);
+				logger.info ("start to enter initial date: " + fromDate);
+				eventPageElements.getButtonOpenCalendar().click();
+				eventPageElements.getButtonOpenMonthPicker().click();
+				String startMonth = getMonth(fromDate);
+				String startDate = getDate(fromDate);
+				eventPageElements.getButtonMonth(startMonth).click();
+				eventPageElements.getButtonDate(startDate).click();
+				logger.info ("initial date has been entered: " + fromDate);
+			}
+
+			//returns true if time is searching time, else otherwise
+			public boolean isTheRequiredTime(String timeFromDatastore) {
+				return timeFromDatastore.equals(getTime());
+			}
+
+			//get time of the event
+			public String getTime() {
+				return ($$(By.xpath("//div[@tabindex = '0']//div[@autoid = '_dx_9']//span[@class = '_dx_A _dx_u']"))).getText()
+			}
+
+
+
+			private LinkedHashMap checkTime(String fromTime, String eventFinishTime, String currentTime, LinkedHashMap timesMap, ArrayList<String> rooms) {
+				WebElement openTimeList = eventPageElements.getButtonOpenTimeList();
+				openTimeList.click();
+				boolean isFinishTimeExceeded = false;
+				while (!isFinishTimeExceeded) {
+					WebElement time = eventPageElements.getButtonTime(currentTime);
+					time.click();
+					sleep(500); //it sleep has to placed here because server need to time to update current status of room
+					LinkedHashMap roomsAvailable = new LinkedHashMap();
+					for (room in rooms) {
+						String available = eventPageElements.getElementStatus(room).getText();
+						roomsAvailable.put(room.toString(), available);
+					}
+					timesMap.put(currentTime, roomsAvailable);
+					//checking for end of day
+
+
+					if (currentTime.equals(eventFinishTime)) {
+						isFinishTimeExceeded = true;
+					}
+					//next time
+					if (!isFinishTimeExceeded) {
+						openTimeList.click();
+						WebElement nextTime = eventPageElements.getElementNextTime(currentTime);
+						currentTime = nextTime.getAttribute("innerHTML");
+					}
+				}
+				return timesMap;
+			}
+
+			private String getMonth(String date) {
+				String [] array = date.split("/");
+				return array[0];
+			}
+
+			private String getDate(String date) {
+				String [] array = date.split("/");
+				char [] dateArray = array[1].toCharArray();
+				if (dateArray[0]=='0') {
+					//if date is chosen in the range 01..09, then delete first zero, for example Jul/09 -> Jul/9
+					return dateArray[1].toString();
+				}
+				else {
+					return array[1];
+				}
+			}
+
+			private String getYear() {
+				String date = eventPageElements.getElementYear().getText();
+				date = date.substring(date.length()-4, date.length());
+				return date+"/";
+			}
+
+			private String pressNextDay(String currentDay) {
+				eventPageElements.getButtonOpenCalendar().click();
+				return getProperDate(currentDay);
+			}
+
+			private String getProperDate (String currentDay) {
+				Date date = new Date(currentDay);
+				Calendar calendar = new GregorianCalendar();
+				DateFormat dateFormat = new SimpleDateFormat("YYYY/MMM/dd");
+				calendar.setTime(date);
+				calendar.add(Calendar.DAY_OF_MONTH, 1);
+				String newDate = dateFormat.format(calendar.getTime());
+				//new dateFormat for comparing dates
+				dateFormat = new SimpleDateFormat("dd");
+				int previousDate = Integer.parseInt(dateFormat.format(date));
+				int nextdate = Integer.parseInt(dateFormat.format(calendar.getTime()));
+				if ((previousDate+1)!=nextdate) {
+					//case1: current date is the last in the current month
+					logger.info ("next date is next month: " + newDate);
+					addMonth(nextdate.toString())
+				} else {
+					//case2: current date isn't last in the current month
+					logger.info ("next date is in the current month: " + newDate);
+					addDate(nextdate.toString());
+				}
+				//new dateFormat for returnig required format
+				dateFormat = new SimpleDateFormat("MMM/dd");
+				return 	dateFormat.format(calendar.getTime());
+			}
+
+			private void addDate(String numb) {
+				eventPageElements.getElementNextDay(numb).click();
+			}
+
+			private void addMonth(String numb) {
+				eventPageElements.getElementNextMonth().click()
+				eventPageElements.getElementNextDay(numb).click();
+			}
+
+
+		}
+
+		public class EventPageElements {
+			private def utils;
+			public EventPageElements() {
+			}
+
+			public EventPageElements(def utils) {
+				this.utils = utils;
+			}
+
+			public WebElement getInputAreaForTitleMeeting(){
+				return utils.waitElementToBeClickable(By.xpath("//input[@aria-label='Add a title for the event']"))
+			}
+
+			public WebElement getButtonSend(){
+				return utils.waitElementToBeClickable(By.xpath("//button[@aria-label='Send']"))
+			}
+
+			public WebElement getInputAreaForLocationMeeting(){
+				return utils.waitElementToBeClickable(By.xpath("//input[@aria-labelledby='MeetingCompose.LocationInputLabel']"))
+			}
+
+			public WebElement getInputAreaForStartTimeMeeting(){
+				return utils.waitElementToBeClickable(By.xpath("//input[@aria-label='start time']"))
+			}
+
+			//returns start time arrow
+			public WebElement getStartTimeArrowButton() {
+				//wait until the window event is open
+				utils.wait(By.xpath("//div[@class = '_cx_n1 customScrollBar']"));
+				return ($$(By.xpath("//span[@class ='_dx_z owaimg ms-Icon--caretDown ms-icon-font-size-16 ms-fcl-ns-b']"))).get(0);
+			}
+
+			public WebElement getCancelArrowButton() {
+				return utils.wait((By.xpath("//button[@autoid ='_fce_3']//span[@class = '_fce_t owaimg ms-Icon--trash ms-icon-font-size-18 ms-fcl-tp-b']")));
+			}
+
+
+			//return send mail button
+			public WebElement getSendButton() {
+				List <WebElement> sendMail = driver.findElements(By.xpath("//div[@class ='_fce_e']//span[@class = 'label o365buttonLabel _fce_r _fce_n']"));
+				return sendMail.get(3);
+			}
+
+			//return cancel button
+			public WebElement getCancelButton() {
+				List <WebElement> confirmDelete = driver.findElements(By.xpath("//button[@autoid = '_fce_6']"));
+				return confirmDelete.get(1)
+			}
+
+			//returns mail box
+			public WebElement getMailBox() {
+				return utils.hardWait(By.xpath("//input[@autoid ='_fp_0']"));
+			}
+
+			//returns button returning to the current day events
+			public WebElement getButtonRetunToDayPageButton() {
+				//get back to day page list
+				return utils.hardWait(By.xpath("//span[@class ='image owaimg _fce_p ms-Icon--x ms-icon-font-size-16 ms-fcl-ns-b']"));
+			}
+
+			public WebElement getInputAreaForEndTimeMeeting(){
+				return utils.waitElementToBeClickable(By.xpath("//input[@aria-label='end time']"))
+			}
+
+			public WebElement getElementParticularLocation(){
+				return utils.waitElementToBeClickable(By.xpath("//div[@class='searchHitHighlightConvergence' and div]"))
+			}
+
+			public WebElement getButtonAddAttendes() {
+				return utils.hardWait(By.xpath("//button[@title='Add attendees']/span[1]"));
+			}
+
+			public WebElement getButtonOpenCalendar() {
+				return utils.hardWait(By.xpath("//*[@class='_cx_R1 startDatePicker']/div/button/span[2]"));
+			}
+
+			public WebElement getButtonOpenMonthPicker() {
+				return utils.hardWait(By.xpath("//ancestor::div[@class='_dx_9']//span[@class='_fc_4 o365buttonLabel ms-font-m ms-font-color-neutralPrimary ms-font-weight-semilight']"));
+			}
+
+			public WebElement getButtonMonth(startMonth) {
+				return utils.hardWait(By.xpath("//*[text()='"+startMonth+"']"));
+			}
+
+			public WebElement getButtonDate(startDate) {
+				WebElement element = utils.hardWait(By.xpath("//ancestor::div[@class='_dx_9']//abbr[text()='"+startDate+"'][@class='_dx_m ms-font-weight-regular']"));
+				if (element!=null) {
+					//if date doesn't current;
+					return element;
+				} else {
+					//if date is current;
+					return utils.hardWait(By.xpath("//ancestor::div[@class='_dx_9']//abbr[text()='"+startDate+"'][@class='_dx_m ms-font-weight-regular monthPickerCurrentDay ms-font-weight-semibold ms-font-color-white ms-bg-color-themePrimary']"));
+				}
+			}
+
+			public WebElement getElementYear() {
+				return utils.hardWait(By.xpath("//*[@class='_cx_R1 startDatePicker']/div/button/span[@class='_dx_4 ms-fwt-sl ms-font-s']"));
+			}
+
+			public WebElement getButtonOpenTimeList() {
+				return utils.hardWait(By.xpath("//ancestor::div[@class='_cx_T1 startTimePicker _cx_U1']//*[@aria-label='Open list of time options']"));
+			}
+
+			public WebElement getButtonTime(String currentTime) {
+				return utils.hardWait(By.xpath("//span[text()='"+currentTime+"']"));
+			}
+
+			public WebElement getElementStatus(String room) {
+				return utils.hardWait(By.xpath("//*[text()='"+room+"']/parent::div/parent::span/span/span"));
+			}
+
+			public WebElement getElementNextTime(String currentTime) {
+				return utils.hardWait(By.xpath("//span[text()='"+currentTime+"']/parent::div/parent::div//following-sibling::div[1]/div/span"));
+			}
+
+			public WebElement getElementNextDay(String numb) {
+				WebElement element = utils.hardWait(By.xpath("//ancestor::div[@class='_dx_9']//abbr[text()='"+numb+"'][@class='_dx_m ms-font-weight-regular']"));
+				if (element!=null) {
+					//if next date in current month;
+					return element;
+				} else {
+					//if next date in the next month, probably you will get null
+					return utils.hardWait(By.xpath("//ancestor::div[@class='_dx_9']//abbr[text()='"+numb+"'][@class='ms-font-weight-regular _dx_m']"));
+				}
+
+			}
+
+			public WebElement getElementNextMonth() {
+				return utils.hardWait(By.xpath("//ancestor::*[@class='_dx_6 ms-font-s ms-fwt-r ms-bgc-w contextMenuDropShadow']//*[@class='_fc_3 owaimg ms-Icon--chevronRight ms-icon-font-size-21 ms-fcl-ns-b']"));
+			}
+
+
+		}
+
+		sys.defineVariable("event_page_actions", new EventPageActions());
+	]]></script>
+
+	<export include-original-data="false"></export>
+
+</config>

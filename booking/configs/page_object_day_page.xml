@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://web-harvest.sourceforge.net/schema/1.0/config"
+	scriptlang="groovy">
+
+	<script><![CDATA[
+		public class DayPageActions {
+			private WebDriver driver;
+			private def log;
+			private def utils;
+			private def credentials;
+			private DayPageElements dayPageElements
+
+			public DayPageActions() {
+			}
+			public static void main(String[] args) {
+			}
+
+			public setInstance(WebDriver driver, def log, def utils, def credentials) {
+				this.driver = driver;
+				this.log = log;
+				this.utils = utils;
+				this.credentials = credentials;
+			}
+
+			//open one event
+			def void openEvent( Actions keyAction, WebElement event) {
+				logger.info ("STEP: click on event");
+				keyAction.moveToElement(event).doubleClick().build().perform();
+				logger.info ("STEP: click on event - FINISHED SUCCESSFUL");
+			}
+
+			//returns amount of events
+			public int getAmountOfEventsOfTheCurrentDay() {
+				return getAllEventsOfTheCurrentDay().size();
+			}
+
+		}
+
+		public class DayPageElements {
+			private def utils;
+
+			public DayPageElements(def utils) {
+				this.utils = utils;
+			}
+
+			public DayPageElements() {
+			}
+
+			//returns all events of the day
+			public List <WebElement> getButtonAllEventsOfTheCurrentDay() {
+				return $$By.xpath("//div[@class = '_cb_C1 calendarBusy']");
+			}
+
+
+		}
+		sys.defineVariable("day_page_actions", new DayPageActions());
+	]]></script>
+
+	<export include-original-data="false"></export>
+
+</config>

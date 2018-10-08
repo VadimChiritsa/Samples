@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://web-harvest.sourceforge.net/schema/1.0/config"
+	scriptlang="groovy">
+
+	<log>###runner_send_email_to_customer###</log>
+
+	<include-config code="email_sender_javax"></include-config>
+	<include-config code="stopper"></include-config>
+	<include-config code="properties"></include-config>
+	<include-config code="secure_ds"></include-config>
+
+	<var-def name="link">
+		<datastore name="gagarin_moz_excel_report_path">
+			select filepath from @this;
+		</datastore>
+	</var-def>
+
+	<!--Parameters -->
+	<script><![CDATA[
+		properties = propertiesObject.getWrappedObject();
+		attemptMaxQty = properties.RUNNER_SEND_EMAIL_TO_CUSTOMER_ATTEMPT_MAX_QTY; //Put here yor attempts max value
+		cachelifeCycle = properties.RUNNER_SEND_EMAIL_TO_CUSTOMER_CACHE_LIFE_CYCLE; //Put here yor Values in SECONDS
+		botTitle = properties.RUNNER_SEND_EMAIL_TO_CUSTOMER_BOT_TITLE;
+		secureDatastore = datastore.getWrappedObject();
+		emailFrom = secureDatastore.getEmailService();
+		emailTo = properties.EMAIL_TO;
+		emailCC = properties.EMAIL_CC;
+		password = secureDatastore.getEmailServicePassword();
+		filePath = link.get(0).get("filepath");
+		stopperClass =  stopperObject.getWrappedObject();
+		stopperClass.setBotParameters(attemptMaxQty, cachelifeCycle, botTitle, log);
+		stacktrace="";
+		isExecuteCode = true; //isExecuteCode means that we didn't exceed the limit of attemtps or isCacheValid!=true (for first attempt isExecuteCode alwaus ==true)
+	]]></script>
+
+	<while condition="${isExecuteCode}">
+		don't change anything here
+		<call name="initialize_cache_and_attempts_qty">
+			<call-param name="stopperClassPassedObject">
+				<script return="stopperClass"><![CDATA[
+					return stopperClass;
+				]]></script>
+			</call-param>
+		</call>
+
+
+		<script><![CDATA[
+			isOneMoreAttemptAvailable = stopperClass.checkAttemtpsQty(); //isOneMoreAttemptAvailable means we didn't exceed a limit of attempts
+			if (!isOneMoreAttemptAvailable) { //if we exceeded the limit, generate new exception not in the try loop
+
+				if(item.getWrappedObject().getSubmission().getAwsHit().getProcessingAttempts()==0){
+
+					//send fail email
+					emailSender = emailSenderObject.getWrappedObject().getInstance(emailFrom, emailTo, password, log);
+					emailSender
+							.setSubject("BP " + item.getWrappedObject().getRun().getCampaignName().toString() + " - crashed")
+							.setBody("BP " + item.getWrappedObject().getRun().getCampaignName().toString() + " - crashed" + "\n"+
+							"- Instance name: " + applicationHost.getWrappedObject().toString() + "\n" +
+							"- Bot name: " + item.getWrappedObject().getCampaignDto().getTitle().toString() + "\n" +
+							"- Start date: " + item.getWrappedObject().getRun().getStartDate().toString() + "\n" +
+							"- Link to BP: " + applicationHost.getWrappedObject().toString() +
+							"/workfusion/secure/business-process/edit/"+item.getWrappedObject().getRun().getRootRunUuid().toString())
+							.setBody(stacktrace.toString(), "ERROR")
+							.setCC(emailCC)
+							.build()
+							.perform();
+
+				}
+
+				throw new Exception("STOP PROCESS");
+			}
+
+			isCacheValid = stopperClass.isCacheValid(); //isCacheValid means we have a good last attempt not far away in the past
+			isExecuteCode = isOneMoreAttemptAvailable&(!isCacheValid);
+		]]></script>
+
+		<case>
+			<if condition="${isCacheValid}"> <!-- cache good -> omit excecution of the bot -->
+				<script><![CDATA[
+					log.info(botTitle + " has omitted execution, it has the valid cache");
+				]]></script>
+			</if>
+			<else>
+				<try>
+					<body>
+
+						<!-- put your code here -->
+
+						<script><![CDATA[
+							emailSender = new SenderJavax.SenderBuilder().getInstance(emailFrom, emailTo, password, log)
+									.setSubject("BP MOZ")
+									.setAttachedFile(filePath.toString())
+									.setBody("BP FINISHED")
+									.build()
+									.perform();
+						]]></script>
+
+						<!-- end of your code -->
+
+						<!-- don't change anything here -->
+						<call name="increment_attempts_qty">
+							<call-param name="stopperClassPassedObject">
+								<script return="stopperClass"><![CDATA[
+									return stopperClass;
+								]]></script>
+							</call-param>
+						</call>
+						<!-- don't change anything here -->
+						<call name="store_last_good_attempt">
+							<call-param name="stopperClassPassedObject">
+								<script return="stopperClass"><![CDATA[
+									isExecuteCode = false; //if process successfully finishes execution, while loop will be interrupted by condition
+									return stopperClass;
+								]]></script>
+							</call-param>
+						</call>
+					</body>
+					<catch>
+						<!-- put comments here -->
+						<script><![CDATA[
+							log.error(_exception_message.getWrappedObject(), _exception.getWrappedObject())
+							stacktrace=_exception_stacktrace.getWrappedObject().toString();
+							stopperClass.setErrorMessage("AN ERROR occured on the attempt No: "+(stopperClass.getQty()+1) + _exception_message.getWrappedObject() + _exception.getWrappedObject());
+						]]></script>
+						<!-- don't change anything here -->
+						<call name="increment_attempts_qty">
+							<call-param name="stopperClassPassedObject">
+								<script return="stopperClass"><![CDATA[
+									return stopperClass;
+								]]></script>
+							</call-param>
+						</call>
+					</catch>
+				</try>
+			</else>
+		</case>
+	</while>
+
+	<export include-original-data="true"></export>
+
+</config>

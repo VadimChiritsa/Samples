@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://web-harvest.sourceforge.net/schema/1.0/config"
+	scriptlang="groovy">
+
+	<script><![CDATA[
+		public class MainPageActions {
+			private WebDriver driver;
+			private def logger;
+			private def waiters;
+            private def properties;
+			private def datastore;
+			private MainPageElements mainPageElements;
+
+
+			public MainPageActions() {
+			}
+
+            public static void main(String[] args) {
+			}
+
+			public setInstance(WebDriver driver, def log, def waiters, def data, def properties) {
+				this.driver = driver;
+				this.logger = log;
+				this.waiters = waiters;
+                mainPageElements = new  MainPageElements(waiters);
+				this.datastore = data;
+                this.properties = properties;
+			}
+
+
+			public void getSearchPage() {
+                logger.info ("STEP: loading main page - FINISHED SUCCESSFUL");
+				mainPageElements.getFieldMainPage();
+                open(properties.LINKTOSEARCHPAGE)
+                logger.info ("STEP: switch to search page - FINISHED SUCCESSFUL");
+			}
+		}
+
+		public class MainPageElements {
+		private def waiters;
+			
+			public MainPageElements() {
+			}
+			
+			public MainPageElements (def waiters) {
+				this.waiters = waiters;
+			}
+            
+			public WebElement getFieldMainPage() {
+				return waiters.hardWait(By.xpath("//div[@class = 'col-one-third']//h3[@class='name cta-header']//a[contains(@href,'manage-campaigns')]"));
+			}
+		}
+
+
+		sys.defineVariable("main_page_actions", new MainPageActions());
+	]]></script>
+
+	<export include-original-data="false">
+	</export>
+
+</config>

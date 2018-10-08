@@ -1,0 +1,333 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://web-harvest.sourceforge.net/schema/1.0/config"
+	scriptlang="groovy">
+
+	<var-def name="data">
+		<datastore name="search_data">
+			select * from @this;
+		</datastore>
+	</var-def>
+
+	<include-config code="page_object_credentials"></include-config>
+
+	<script><![CDATA[
+		log.info("PostProcessing bot (Prepare data for SearchBot) begins to work");
+	]]></script>
+
+	<script><![CDATA[
+		import java.text.DateFormat;
+		import java.util.Date;
+		import java.text.SimpleDateFormat;
+		import org.apache.commons.lang.time.DateUtils;
+		import org.slf4j.impl.*;
+
+		public class PostProcessor {
+			public static String from_date = "";
+			public static String from_time = "";
+			public static String till_date = "";
+			public static String event_first_start_time = "";
+			public static String event_finish_time = "";
+
+			private def data;
+			private def log;
+			private def credentials;
+			private boolean corectData = true;
+			private double timeSlot = 30;
+
+
+			public PostProcessor() {
+			}
+
+			public PostProcessor(def data, def log, def credentials) {
+				this.data=data;
+				this.log=log;
+				this.credentials = credentials;
+			}
+
+			public boolean getResult() {
+				return corectData;
+			}
+
+			public static void main(String[] args) {
+			}
+
+			public void readData() {
+				def row  = data.get(data.size()-1); //last record in the dataStore
+				log.info(row.toString());
+				String startEvent = row.get("from_time_and_date").toString();
+				String finishEvent = row.get("end_time_and_date").toString();
+
+				corectData = compareStartAndEndDates(startEvent, finishEvent);
+				corectData = compareStartAndEndTimes(startEvent, finishEvent);
+				if (corectData) {
+					checkInitialDate(startEvent);
+					checkEndDate(finishEvent);
+				}
+			}
+
+			private void checkInitialDate(String initialDate) {
+				int result = compareDateWithCurrent(initialDate);
+				if (result<0) {
+					//user entered a past date
+					from_date = getCurrentdate();
+					event_first_start_time = getRealTime();
+					from_time = roundTime(getTime(initialDate));
+				} else if (result==0) {
+					//if user entered current date
+					from_date = getCurrentdate();
+					from_time = roundTime(getTime(initialDate));
+					event_first_start_time = roundTime(compareEnteredTimeAndReal(getTime(initialDate), getRealTime ()));;
+				}
+				else {
+					from_date = getDate(initialDate);
+					from_time = roundTime(getTime(initialDate));
+					event_first_start_time = from_time;
+				}
+			}
+
+			private void checkEndDate(String endDate) {
+				int result = compareDateWithCurrent(endDate);
+				if (result<0) {
+					//user entered a past date
+					corectData=false;
+					log.info("Class = PostProcessor, Method = checkEndDate, Message = Error, finish date is in the Past");
+				} else if (result==0) {
+					//if user entered current date
+					till_date = getCurrentdate();
+					event_finish_time = roundTime(getTime(endDate));
+				}
+				else {
+					till_date = getDate(endDate);
+					event_finish_time = roundTime(getTime(endDate));
+				}
+			}
+
+			private String compareEnteredTimeAndReal(String enteredTime, String realTime) {
+				SimpleDateFormat sdf = new SimpleDateFormat ("hh:mm a");
+				Date entered = sdf.parse(enteredTime);
+				Date real = sdf.parse(realTime);
+				long difference = real.getTime() - entered.getTime();
+				if (difference>0) {
+					return realTime;
+				}
+				return enteredTime;
+			}
+
+			private String getRealTime () {
+				Date currentDate = new Date();
+				Calendar calendar = new GregorianCalendar();
+				DateFormat dateFormat = new SimpleDateFormat("h mm a");
+				calendar.setTime(currentDate);
+				String currentTime = dateFormat.format(calendar.getTime());
+				currentTime = roundTime(currentTime);
+			}
+
+			private String roundTime(String time) {
+				time = time.replaceAll(":", " ");
+				String[] array = time.split(" ");
+				String timeBeforeRound = array[1];
+				array[1] = mathRoundTime(array[1]);
+				if ((array[1].equals("00"))&&(!timeBeforeRound.equals("00"))) {
+					array[0] = addOneHour(array[0]);
+				}
+				if (array[0].equals("12")) {
+					array[2] = addTwelveHours(array[2]);
+				}
+				StringBuffer sb = new StringBuffer();
+				sb.append(array[0]+":"+array[1]+" "+array[2]);
+				return sb.toString();
+			}
+			private String addOneHour(String hours) {
+				int hour = Integer.parseInt(hours);
+				if (hour==12) {
+					return "1";
+				}
+				return (hour+1).toString();
+			}
+
+			private String addTwelveHours(String partDay) {//TODO Probably problem
+				if (partDay.equals("AM")) {
+					return "PM";
+				} else {
+					return "PM"
+				}
+			}
+
+			private String mathRoundTime(String minutes) {
+				double min = Double.parseDouble(minutes);
+				double result = (min/timeSlot);
+				if (result>1.0) {
+					return "00";
+				} else if (result == 1.0){
+					return "30";
+				} else if (result == 0.0) {
+					return "00";
+				} else {
+					return "30";
+				}
+			}
+
+			private String getTime(String date) {
+				Date currentDate = new Date(date);
+				Calendar calendar = new GregorianCalendar();
+				DateFormat dateFormat = new SimpleDateFormat("h:mm a");
+				calendar.setTime(currentDate);
+				return dateFormat.format(calendar.getTime());
+			}
+
+			private String getDate(String date) {
+				Date currentDate = new Date(date);
+				Calendar calendar = new GregorianCalendar();
+				DateFormat dateFormat = new SimpleDateFormat("MMM/dd");
+				calendar.setTime(currentDate);
+				return dateFormat.format(calendar.getTime());
+			}
+
+			public String getCurrentdate() {
+				Date currentDate = new Date();
+				Calendar calendar = new GregorianCalendar();
+				DateFormat dateFormat = new SimpleDateFormat("MMM/dd");
+				calendar.setTime(currentDate);
+				return dateFormat.format(calendar.getTime());
+			}
+
+			public int compareDateWithCurrent(String date) {
+				Date userDate = new Date(date);
+				Date currentDate = new Date();
+				if (DateUtils.isSameDay(userDate, currentDate)) {
+					//the same;
+					return 0;
+				} else if (userDate.before(currentDate)) {
+					//user date is the less;
+					return -1;
+				} else {
+					//user date is the greater;
+					return 1;
+				}
+			}
+
+			//7/1/2018  3:00:00 PM
+
+			public boolean compareStartAndEndDates(String start, String end) {
+				Date startDate = new Date(start);
+				Date endDate = new Date(end);
+				if (DateUtils.isSameDay(startDate, endDate)) {
+					log.info("Class = PostProcessor, Method = compareStartAndEndDates, Message = date is incorrect, intial date and time equals to the finish date and time");
+					return false;
+				} else if (endDate.before(startDate)) {
+					log.info("Class = PostProcessor, Method = compareStartAndEndDates, Message = dates are incorrect, intial date is greater then finish!");
+					return false;
+				} else {
+					log.info("Class = PostProcessor, Method = compareStartAndEndDates, Message = compare finish and intia; date is correct (finish>initial)");
+					return true;
+				}
+			}
+
+			public boolean compareStartAndEndTimes(String start, String end) {
+				SimpleDateFormat sdf = new SimpleDateFormat ("hh:mm a");
+				Date startTime = sdf.parse(getTime(start));
+				Date endTime = sdf.parse(getTime(end));
+				long difference = endTime.getTime() - startTime.getTime();
+				if (difference>0) {
+					if (checkRanges(startTime, endTime)) {
+						log.info("Class = PostProcessor, Method = compareStartAndEndTimes, Message = compare finish and intial times; times are correct (finish>initial)");
+						return true;
+					}
+				} else if (difference==0) {
+					log.info("Class = PostProcessor, Method = compareStartAndEndTimes, Message = compare finish and intial times; times are INCORRECT (finish==initial)");
+					return false;
+				} else {
+					log.info("Class = PostProcessor, Method = compareStartAndEndTimes, Message = compare finish and intial times; times are INCORRECT (finish<initial)");
+					return false;
+				}
+			}
+
+			public boolean checkRanges(Date startTime, Date endTime) {
+				SimpleDateFormat sdf = new SimpleDateFormat ("hh:mm a");
+				Date minStart = sdf.parse(credentials.MIN_START_RANGE_TIME);
+				Date maxStart = sdf.parse(credentials.MAX_START_RANGE_TIME);
+				Date minEnd = sdf.parse(credentials.MIN_END_RANGE_TIME);
+				Date maxEnd = sdf.parse(credentials.MAX_END_RANGE_TIME);
+				if (!checkDifference(startTime, minStart, "start time out of range, startTime less then minRange, minRange = "+ credentials.MIN_START_RANGE_TIME)) {
+					return false;
+				}
+
+				if (!checkDifference(maxStart, startTime, "start time out of range, startTime greater then maxRange maxRange = "+ credentials.MAX_START_RANGE_TIME)) {
+					return false;
+				}
+
+				if (!checkDifference(endTime, minEnd, "finish time out of range, finishTime less then minRange, minRange = "+ credentials.MIN_END_RANGE_TIME)) {
+					return false;
+				}
+
+				if (!checkDifference(maxEnd, endTime, "finish time out of range, finishtTime greater then maxRange maxRange = "+ credentials.MAX_END_RANGE_TIME)) {
+					return false;
+				}
+
+				return true;
+			}
+
+			private boolean checkDifference(Date first, Date second, String comment) {
+				long difference = first.getTime() - second.getTime();
+				if (difference<0) {
+					log.info (comment);
+					return false;
+				}
+				return true;
+			}
+		}
+
+		def credentialsObject = credentials.getWrappedObject();
+		PostProcessor postProcessor = new PostProcessor(data, log, credentialsObject);
+		postProcessor.readData();
+		boolean result = postProcessor.getResult();
+		sys.defineVariable("data_correct", result);
+		if (result) {
+			log.info("Class = MainScript, Method = None, Message = from_time = " + PostProcessor.from_time);
+			log.info("Class = MainScript, Method = None, Message = from_date = " + PostProcessor.from_date);
+			log.info("Class = MainScript, Method = None, Message = till_date = " + PostProcessor.till_date);
+			log.info("Class = MainScript, Method = None, Message = event_first_start_time = " + PostProcessor.event_first_start_time);
+			log.info("Class = MainScript, Method = None, Message = event_finish_time = " + PostProcessor.event_finish_time);
+		} else {
+			log.info("Class = MainScript, Method = None, Message = entered data is incorrect, execution interupted");
+		}
+
+		if (result) {
+			Map insertedParamMap = new HashMap();
+			insertedParamMap.put("from_time", PostProcessor.from_time.toString());
+			insertedParamMap.put("from_date", PostProcessor.from_date.toString());
+			insertedParamMap.put("till_date", PostProcessor.till_date.toString());
+			insertedParamMap.put("event_first_start_time", PostProcessor.event_first_start_time.toString());
+			insertedParamMap.put("event_finish_time", PostProcessor.event_finish_time.toString());
+			jsonData = new com.google.gson.Gson().toJson(insertedParamMap);
+		}
+	]]></script>
+
+	<var-def name="isPushDataInDatastore">
+		<case>
+			<if condition="${data_correct}">
+				<create-datastore name="gagarin_booking_etlbot_postprocessing_result">
+					<datastore-column name="from_time" />
+					<datastore-column name="from_date" />
+					<datastore-column name="till_date" />
+					<datastore-column name="event_first_start_time" />
+					<datastore-column name="event_finish_time" />
+				</create-datastore>
+
+				<insert-datastore datastore-name="gagarin_booking_etlbot_postprocessing_result"
+					json-value-map="${jsonData}">
+				</insert-datastore>
+			</if>
+			<else>
+			</else>
+		</case>
+	</var-def>
+
+
+
+
+	<export include-original-data="true">
+		<single-column name="data_correct" value="${data_correct}" />
+	</export>
+
+</config>

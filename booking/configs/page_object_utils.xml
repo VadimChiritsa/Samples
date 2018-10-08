@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://web-harvest.sourceforge.net/schema/1.0/config"
+	scriptlang="groovy">
+
+	<script><![CDATA[
+		import org.slf4j.impl.*;
+		public class WFLogger {
+			public static def logger;
+			public static void main(String[] args) {
+			}
+			public static void createLogger(def log) {
+				logger = log;
+				logger.info("Logger Initialized");
+			}
+		}
+	]]></script>
+
+	<script><![CDATA[
+		/*
+		 * There is our custom Exception for the hardWait method
+		 */
+		public class UnSupportedException extends Exception {
+			public UnSupportedException() {
+				super("not defined exception");
+			}
+			public static void main(String[] args) {
+			}
+		}
+	]]></script>
+
+	<script><![CDATA[
+		import java.util.concurrent.TimeUnit;
+		import java.util.function.*;
+		public class Utils {
+			private WebDriver driver;
+			private WebDriverWait wait;
+			private def logger;
+			public Utils() {
+			}
+			public static void main(String[] args) {
+			}
+
+			public void setInctance(WebDriver driver, def log) {
+				this.driver = driver;
+				this.logger = log;
+			}
+
+			public WebElement getWebElement(By by, long poll=500, long waitTime=60_000, exception = Exception.class) {
+				long startTime = System.currentTimeMillis();
+				Wait<WebDriver> wait = new FluentWait<WebDriver>(webDriver)
+						.withTimeout(waitTime, TimeUnit.MILLISECONDS)
+						.pollingEvery(poll, TimeUnit.MILLISECONDS)
+						.ignoring(exception)
+
+
+				WebElement element = wait.until(new Function<WebDriver, WebElement>(){
+							public WebElement apply(WebDriver driver) {
+								return driver.findElement(by);
+							}
+						});
+				return element;
+			}
+
+			public WebElement hardWait(By by, long time=60_000, long pollTime=500, List exceptionList=["org.openqa.selenium.NoSuchElementException", "org.openqa.selenium.ElementNotVisibleException"]) {
+				long startTime = System.currentTimeMillis();
+				while ((System.currentTimeMillis() - startTime) <= time) {
+					try {
+						WebElement element = driver.findElement(by);
+						if (element.isDisplayed()) {
+							element.getText();
+							return element;
+						}
+					}
+					catch (Exception e) {
+						if (!isHandledException(e, exceptionList)) {
+							throw new UnSupportedException();
+						}
+						sleep(pollTime);
+					}
+				}
+				logger.info("Class utils, method hardWait: can't find element with By=["+by+"]");
+				return null;
+			}
+
+			private boolean isHandledException(Exception e, List exceptionList) {
+				for (String exClass: exceptionList) {
+					if (exClass.equals(e.getClass().getName())) {
+						return true;
+					} 
+				}
+				return false;
+			}
+
+
+			public WebElement waitElementToBeClickable(By by, int waitTime=60){
+				this.wait = new WebDriverWait(this.driver, waitTime);
+				return this.wait.until(ExpectedConditions.elementToBeClickable(by));
+			}
+
+			public Boolean waitNumberOfElementsToBe(By by, int elements=1, int waitTime=60){
+				this.wait = new WebDriverWait(this.driver, waitTime);
+				return this.wait.until(ExpectedConditions.numberOfElementsToBe(by, elements));
+			}
+			public Boolean waitNumberOfElementsToBeMoreThan(By by, int elements, int waitTime=60){
+				this.wait = new WebDriverWait(this.driver, waitTime);
+				return this.wait.until(ExpectedConditions.numberOfElementsToBeMoreThan(by,elements));
+			}
+
+			public WebElement waitVisibilityOfElementLocated(By by, int waitTime=60){
+				this.wait = new WebDriverWait(this.driver, waitTime);
+				return this.wait.until(ExpectedConditions.visibilityOfElementLocated(by));
+			}
+		}
+
+		sys.defineVariable("utils", new Utils());
+	]]></script>
+
+	<export include-original-data="false"></export>
+
+</config>

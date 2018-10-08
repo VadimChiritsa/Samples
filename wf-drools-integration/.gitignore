@@ -1,0 +1,20 @@
+# Package Files #
+*.war
+*.ear
+*.tar.gz
+*.rar
+*.iml
+
+.classpath
+.project
+output/*
+.debug/*
+.metadata/*
+bin/*
+.idea/*
+logs/*
+target/*
+.settings/*
+*.db
+*.db-journal
+/bin/

@@ -1,0 +1,12 @@
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd" >
+<suite name="MainSuite" verbose="1" parallel="methods" thread-count="2">
+    <test name="Calc functions"   >
+        <classes>
+            <class name="by.epam.edu.testing.MultDivCalcTest"></class>
+            <class name="by.epam.edu.testing.PositiveNegativeCalcTestFactory"/>
+            <class name="by.epam.edu.testing.SqrtPowCalcTest"/>
+            <class name="by.epam.edu.testing.SumSubCalcTest"/>
+            <class name="by.epam.edu.testing.TrigonometryTest"/>
+        </classes>
+    </test>
+</suite>

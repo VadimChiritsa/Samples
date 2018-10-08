@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://web-harvest.sourceforge.net/schema/1.0/config"
+	scriptlang="groovy">
+
+
+	<script><![CDATA[
+		def propertiesObject = propertiesObject.getWrappedObject();
+		def columnsTitlesObject = columnsTitlesObject.getWrappedObject();
+		import com.google.gson.*;
+		datastoreName= propertiesObject.DS_NAME;
+		dataStoreMapList=[]
+
+		// Work Columns
+		columns=["URL"]
+		//Final List
+		jsonDataList=[]
+	]]></script>
+
+
+	<loop item="row">
+		<list>
+			<datastore name="${datastoreName}">
+				select * from @this;
+			</datastore>
+		</list>
+		<body>
+			<script><![CDATA[
+				columns.forEach({column ->
+					conversionMap = [:]
+					conversionMap.put(column, row.get(column).toString())
+					dataStoreMapList.add(conversionMap)
+				})
+			]]></script>
+		</body>
+	</loop>
+
+	<script><![CDATA[
+		public class SearchPageActions {
+			private List dataStoreMapList;
+			private WebDriver driver;
+			private def logger;
+			private def waiters;
+			private def properties;
+			private def columnsTitlesObject;
+			private def datastore;
+			private SearchPageElements searchPageElements;
+			private List jsonDataList;
+			public SearchPageActions( List dataStoreMapList, jsonDataList) {
+				this.dataStoreMapList = dataStoreMapList;
+				this.jsonDataList = jsonDataList;
+			}
+
+			public static void main(String[] args) {
+			}
+
+			public setInstance(WebDriver driver, def log, def waiters, def data, def properties, columnsTitlesObject) {
+				this.driver = driver;
+				this.logger = log;
+				this.waiters = waiters;
+				searchPageElements = new  SearchPageElements(waiters);
+				this.datastore = data;
+				this.properties = properties;
+				this.columnsTitlesObject = columnsTitlesObject;
+			}
+
+			//this function convert data into valid number format
+			//for example 200k into 200000 and 2m int 2000000
+			public String convertToNumeric (String initialValue) {
+				String resultNumber = "";
+				if (initialValue.contains("k") && initialValue.contains(".")){
+					resultNumber =(initialValue.replace("k", "00"));
+				} else if(initialValue.contains("k") && !initialValue.contains(".")){
+					resultNumber = (initialValue.replace("k", "000"));
+				} else if(initialValue.contains("m") && !initialValue.contains(".")){
+					resultNumber=(initialValue.replace("m", "000000"));
+				} else if(initialValue.contains("m") && initialValue.contains(".")){
+					resultNumber=(initialValue.replace("m", "00000"));
+				} else if(initialValue.contains("b") && !initialValue.contains(".")){
+					resultNumber= (initialValue.replace("m", "000000000"));
+				} else if(initialValue.contains("b") && initialValue.contains(".")){
+					resultNumber= (initialValue.replace("m", "00000000"));
+				} else{
+					resultNumber = initialValue;
+				}
+				return resultNumber;
+			}
+
+			public boolean isRootDomain(WebElement domain) {
+				return (domain.getText()).equals("root domain");
+			}
+            
+            public void switchedToRoootDomain() {
+				searchPageElements.getElementDomainWindow().click();
+				searchPageElements.getElementRootDomain().click();
+				searchPageElements.getButtonSearchLinks().click();
+			}
+
+            public void switchedToSubDomain() {
+			  searchPageElements.getElementDomainWindow().click();
+			  searchPageElements.getElementSubDomain().click();
+			  searchPageElements.getButtonSearchLinks().click();
+			}
+            
+            public Map getElements() {
+              Map dataElements = new HashMap()
+			  WebElement discoveredLink = searchPageElements.getElementJustDiscovered();
+              dataElements.put("discoveredLink", discoveredLink);
+			  WebElement totalLost = searchPageElements.getElementLost();
+              dataElements.put("totalLost", totalLost);
+		      WebElement netLink = searchPageElements.getElementNet();
+              dataElements.put("netLink", netLink);
+			  WebElement domainAuthorityLink = searchPageElements.getElementDomainAuthority();
+              dataElements.put("domainAuthorityLink", domainAuthorityLink);
+			  WebElement linkingDomainsLink = searchPageElements.getElementlinkingDomains();
+              dataElements.put("linkingDomainsLink", linkingDomainsLink);
+			  WebElement inboudingLinks = searchPageElements.getElementInboudingLinks();
+              dataElements.put("inboudingLinks", inboudingLinks);
+              return dataElements;
+			}  
+            
+            public Map getRootDomainData(WebElement domainAuthorityLink, WebElement linkingDomainsLink, WebElement inboudingLinks,
+              WebElement discoveredLink, WebElement netLink, WebElement totalLost) {
+              Map informationMap = new HashMap()
+              informationMap.put(columnsTitlesObject.DOMAIN_AUTHORITY_ROOT_DOMAIN, Integer.valueOf(domainAuthorityLink.getText())/100);
+			  informationMap.put(columnsTitlesObject.LINKING_DOMAINS_ROOT_DOMAIN,(convertToNumeric(linkingDomainsLink.getText()).replace(".","")));
+			  informationMap.put(columnsTitlesObject.INBOUND_LINKS_ROOT_DOMAIN,(convertToNumeric(inboudingLinks.getText()).replace(".","")));
+			  informationMap.put(columnsTitlesObject.JUST_DISCOVERED_ROOT_DOMAIN,Integer.valueOf(discoveredLink.getText().replaceAll("[,+-]","")))
+			  informationMap.put(columnsTitlesObject.NET_ROOT_DOMAIN,Integer.valueOf(netLink.getText().replaceAll("[,+-]","")))
+			  informationMap.put(columnsTitlesObject.LOST_ROOT_DOMAIN,Integer.valueOf(totalLost.getText().replaceAll("[,+-]","")))
+              return informationMap;
+			}
+            
+            public Map getSubDomainData(WebElement domainAuthorityLink, WebElement linkingDomainsLink, WebElement inboudingLinks,
+              WebElement discoveredLink, WebElement netLink, WebElement totalLost) {
+              Map informationMap = new HashMap()
+              informationMap.put(columnsTitlesObject.DOMAIN_AUTHORITY_SUB_DOMAIN, Integer.valueOf(domainAuthorityLink.getText())/100);
+			  informationMap.put(columnsTitlesObject.LINKING_DOMAINS_SUB_DOMAIN,(convertToNumeric(linkingDomainsLink.getText()).replace(".","")));
+		      informationMap.put(columnsTitlesObject.INBOUND_LINKS_SUB_DOMAIN,(convertToNumeric(inboudingLinks.getText()).replace(".","")));
+			  informationMap.put(columnsTitlesObject.JUST_DISCOVERED_SUB_DOMAIN,Integer.valueOf(discoveredLink.getText().replaceAll("[,+-]","")))
+			  informationMap.put(columnsTitlesObject.NET_SUB_DOMAIN,Integer.valueOf(netLink.getText().replaceAll("[,+-]","")))
+	          informationMap.put(columnsTitlesObject.LOST_SUB_DOMAIN,Integer.valueOf(totalLost.getText().replaceAll("[,+-]","")))
+              return informationMap;
+			}
+
+			public List collectData() {
+				logger.info ("STEP: get links ");
+				List informationList = new ArrayList();
+				for (company in dataStoreMapList) {
+					open("https://analytics.moz.com/pro/link-explorer/")
+					Map informationMap = new HashMap()
+					searchPageElements.getFieldSearchPage();
+					searchPageElements.getFieldLinks().sendKeys(company.get('URL').toString());
+					searchPageElements.getButtonSearchLinks().click();
+
+					if(!isRootDomain(searchPageElements.getElementDomainWindow())) {
+					  switchedToRoootDomain();	
+					}
+			
+					informationMap.put(columnsTitlesObject.URL, company.get('URL').toString())
+                    informationMap.putAll(getRootDomainData(getElements().get("domainAuthorityLink"), getElements().get("linkingDomainsLink"), getElements().get("inboudingLinks"),
+                    getElements().get("discoveredLink"), getElements().get("netLink"), getElements().get("totalLost")));
+					
+					if(isRootDomain(searchPageElements.getElementDomainWindow())) {
+                      switchedToSubDomain();
+					}
+					informationMap.putAll(getSubDomainData(getElements().get("domainAuthorityLink"), getElements().get("linkingDomainsLink"), getElements().get("inboudingLinks"),
+                    getElements().get("discoveredLink"), getElements().get("netLink"), getElements().get("totalLost")));
+
+					informationList.add(informationMap);
+					logger.info(informationMap.toString())
+				}
+				jsonDataList = informationList.stream().map({map->new com.google.gson.Gson().toJson(map)}).collect()
+				logger.info ("STEP: get links - FINISHED SUCCESSFUL");
+				return  jsonDataList;
+			}
+
+
+
+			public List getData() {
+				logger.info ("STEP: get data from moz");
+				jsonDataList = getLinks().stream().map({map->new com.google.gson.Gson().toJson(map)}).collect()
+				logger.info ("STEP: get data from moz - FINISHED SUCCESSFUL");
+				return jsonDataList;
+			}
+		}
+
+		public class SearchPageElements {
+			private def waiters;
+
+			public SearchPageElements() {
+			}
+
+			public SearchPageElements (def waiters) {
+				this.waiters = waiters;
+			}
+
+			public WebElement getElementJustDiscovered() {
+				return waiters.hardWait(By.xpath("//div[@class='gained-and-lost-graph-metrics']/div[1]//p[@class='discovered']"));
+			}
+
+			public WebElement getElementNet() {
+				return waiters.hardWait(By.xpath("//div[@class='gained-and-lost-graph-metrics']/div[4]//p[@class='lost' | @class='discovered']"));
+			}
+
+			public WebElement getElementLost() {
+				return waiters.hardWait(By.xpath("//div[@class='gained-and-lost-graph-metrics']/div[2]//p[@class='lost']"));
+			}
+
+			public WebElement getElementDomainAuthority() {
+				return waiters.hardWait(byXpath("//div[@class='metric' and .//span[text()='Domain Authority']]//div[@class='animation-value']"));
+			}
+
+			public WebElement getElementlinkingDomains() {
+				return waiters.hardWait(byXpath("//div[@class='metrics-container']//a[contains(@href,'linking-domains')]"));
+			}
+
+			public WebElement getElementInboudingLinks() {
+				return waiters.hardWait(byXpath("//div[@class='metrics-container']//a[contains(@href,'inbound-links')]"));
+			}
+			public WebElement getElementDomainWindow() {
+				return waiters.hardWait(By.xpath("//form[@class = 'links-search']//span[@class = 'toggle']/div"));
+			}
+
+			public WebElement getElementRootDomain() {
+				return waiters.hardWait(By.xpath("//ul[@class = 'menu']/li[text() = 'root domain']"));
+			}
+
+			public WebElement getElementSubDomain() {
+				return waiters.hardWait(By.xpath("//div[@class = 'search-dropdown']//ul[@class = 'menu']/li[text() = 'subdomain']"));
+			}
+
+			public WebElement getFieldLinks() {
+				return $(byXpath("//input[@class='input search-input']"));
+			}
+
+			public WebElement getFieldSearchPage() {
+				WebElement topSearchElement = waiters.hardWait(By.xpath("//a[text()='Top Pages']"));
+				return waiters.hardWait(By.xpath("//input[@class='input search-input']"));
+			}
+
+			public WebElement getButtonSearchLinks() {
+				return waiters.hardWait(By.xpath("//button[@class='button-primary']"));
+			}
+		}
+
+		sys.defineVariable("search_page_actions", new SearchPageActions(dataStoreMapList,jsonDataList));
+	]]></script>
+
+	<export include-original-data="false">
+	</export>
+</config>

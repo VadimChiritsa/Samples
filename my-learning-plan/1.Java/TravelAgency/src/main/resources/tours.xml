@@ -1,0 +1,43 @@
+<Tours>
+	<Tour>
+		<TourType>RelaxTour</TourType>
+		<StartDate>13.10.2017</StartDate>
+		<Length>14</Length>
+		<Price>19.25</Price>
+		<MealType>HB</MealType>
+		<TransportType>Ship</TransportType>
+	</Tour>
+	<Tour>
+		<TourType>HealingTour</TourType>
+		<StartDate>13.05.2017</StartDate>
+		<Length>10</Length>
+		<Price>22.25</Price>
+		<MealType>BB</MealType>
+		<TransportType>Bus</TransportType>
+	</Tour>
+	<Tour>
+		<TourType>Cruiz</TourType>
+		<StartDate>13.12.2017</StartDate>
+		<Length>7</Length>
+		<Price>18.25</Price>
+		<MealType>AI</MealType>
+		<TransportType>Ship</TransportType>
+	</Tour>
+	<Tour>
+		<TourType>Cruiz</TourType>
+		<StartDate>13.12.2017</StartDate>
+		<Length>7</Length>
+		<Price>18.25</Price>
+		<MealType>RO</MealType>
+		<TransportType>Plane</TransportType>
+	</Tour>
+
+	<Tour>
+		<TourType>ShoppingTour</TourType>
+		<StartDate>13.01.2017</StartDate>
+		<Length>6</Length>
+		<Price>10</Price>
+		<MealType>HB</MealType>
+		<TransportType>Bus</TransportType>
+	</Tour>
+</Tours>

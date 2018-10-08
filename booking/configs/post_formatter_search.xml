@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://web-harvest.sourceforge.net/schema/1.0/config"
+	scriptlang="groovy">
+
+	<script><![CDATA[
+		public class FormatterDates {
+			private boolean different = false;
+			private boolean notNull = false;
+			def logger;
+			def credentials;
+			private String startTime;
+			private String tillTime;
+			private LinkedHashMap previousResult;
+			private Queue result = new LinkedList(); //for JSON output
+			private LinkedHashMap currentResult;
+			private LinkedHashMap inputMap;
+
+
+			public FormatterDates() {
+			}
+
+			public setInstance(def log, def credentials) {
+				this.logger = log;
+				this.credentials = credentials;
+			}
+
+			public LinkedList refactorData(LinkedHashMap hashMap, String fromTime) {
+				this.inputMap = hashMap;
+
+				logger.info ("STEP: start format data (convert to JSON)");
+				Set dateSet = inputMap.keySet();
+				//traversal throush the date list
+				for(date in dateSet){
+					previousResult = new LinkedHashMap();
+					startTime = fromTime;
+					notNull = false;
+					//traversal throush the time list
+					concatTime(date.toString());
+					//do not add the same row
+					if (!startTime.equals(tillTime)) {
+						//do not add the empty day
+						if (notNull) {
+							fillData(date, startTime, tillTime, previousResult);
+						}
+					}
+				}
+				logger.info ("STEP: start format data (convert to JSON) - FINISHED SUCCESSFULLY");
+				return result;
+			}
+
+			private void fillData(def date, def startTime, def tillTime, def previousResult) {
+				LinkedHashMap timeSlot = new LinkedHashMap();
+				timeSlot.put("date", date);
+				timeSlot.put("start_time", startTime);
+				timeSlot.put("till_time", tillTime);
+				timeSlot.put("result", previousResult);
+				result.add(timeSlot);
+			}
+
+			private void concatTime(String date) {
+				Set timeSet = inputMap.get(date).keySet();
+				for (time in timeSet) {
+					currentResult = new LinkedHashMap();
+					tillTime = time;
+					different = false;
+					notNull = false;
+					concateRooms(date, time.toString());
+					//if current status != previous
+					if (different) {
+						//notNull == person or room NOT busy
+						if (notNull) {
+							fillData(date, startTime, tillTime, previousResult);
+						}
+						startTime = time;
+						different = false;
+						previousResult = new HashMap();
+						previousResult = currentResult;
+					}
+				}
+			}
+
+			private void concateRooms(String date, String time) {
+				Set roomSet = inputMap.get(date).get(time).keySet();
+				//traversal through the room list
+				for (room in roomSet) {
+					String value = inputMap.get(date).get(time).get(room);
+					int intValue = 0;
+					if (value.equals(credentials.FREE_FLAG)) {
+						intValue = 1;
+					}
+					currentResult.put(room, intValue);
+					//fill rooms data if we have a new date
+					if (previousResult.size()<roomSet.size()) {
+						previousResult.put(room, intValue);
+						currentResult.put(room, intValue);
+						startTime = time;
+					} else if ((previousResult.get(room))!=intValue) {
+						different = true;
+					}
+					//notNull - one room is avalable
+					if (previousResult.get(room)>0) {
+						notNull = true;
+					}
+				}
+			}
+			public static void main (String[] args) {
+			}
+		}
+
+		sys.defineVariable("formatter", new FormatterDates());
+	]]></script>
+
+	<export include-original-data="false"></export>
+</config>

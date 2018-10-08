@@ -1,0 +1,189 @@
+{
+  "city": {
+    "id": 629634,
+    "name": "Brest",
+    "coord": {
+      "lon": 23.700001,
+      "lat": 52.099998
+    },
+    "country": "BY",
+    "population": 0
+  },
+  "cod": "200",
+  "message": 0.0263,
+  "cnt": 7,
+  "list": [
+    {
+      "dt": 1486634400,
+      "temp": {
+        "day": 265.15,
+        "min": 264.14,
+        "max": 266.38,
+        "night": 264.14,
+        "eve": 266.38,
+        "morn": 264.15
+      },
+      "pressure": 1031.75,
+      "humidity": 89,
+      "weather": [
+        {
+          "id": 600,
+          "main": "Snow",
+          "description": "light snow",
+          "icon": "13d"
+        }
+      ],
+      "speed": 5.81,
+      "deg": 110,
+      "clouds": 92,
+      "snow": 1.24
+    },
+    {
+      "dt": 1486720800,
+      "temp": {
+        "day": 259.52,
+        "min": 258.09,
+        "max": 261.76,
+        "night": 260.52,
+        "eve": 261.21,
+        "morn": 259.45
+      },
+      "pressure": 1032.93,
+      "humidity": 85,
+      "weather": [
+        {
+          "id": 600,
+          "main": "Snow",
+          "description": "light snow",
+          "icon": "13d"
+        }
+      ],
+      "speed": 5.01,
+      "deg": 101,
+      "clouds": 0,
+      "snow": 0.04
+    },
+    {
+      "dt": 1486807200,
+      "temp": {
+        "day": 262.95,
+        "min": 259.85,
+        "max": 264.73,
+        "night": 262.31,
+        "eve": 264.53,
+        "morn": 259.85
+      },
+      "pressure": 1034.51,
+      "humidity": 88,
+      "weather": [
+        {
+          "id": 600,
+          "main": "Snow",
+          "description": "light snow",
+          "icon": "13d"
+        }
+      ],
+      "speed": 5.57,
+      "deg": 114,
+      "clouds": 64,
+      "snow": 0.32
+    },
+    {
+      "dt": 1486893600,
+      "temp": {
+        "day": 265.66,
+        "min": 254.75,
+        "max": 265.66,
+        "night": 254.75,
+        "eve": 260.36,
+        "morn": 263.4
+      },
+      "pressure": 1036.21,
+      "humidity": 0,
+      "weather": [
+        {
+          "id": 800,
+          "main": "Clear",
+          "description": "clear sky",
+          "icon": "01d"
+        }
+      ],
+      "speed": 4.62,
+      "deg": 130,
+      "clouds": 61,
+      "snow": 0.03
+    },
+    {
+      "dt": 1486980000,
+      "temp": {
+        "day": 265.61,
+        "min": 253.04,
+        "max": 265.61,
+        "night": 255.15,
+        "eve": 257.18,
+        "morn": 253.04
+      },
+      "pressure": 1032.77,
+      "humidity": 0,
+      "weather": [
+        {
+          "id": 800,
+          "main": "Clear",
+          "description": "clear sky",
+          "icon": "01d"
+        }
+      ],
+      "speed": 1.56,
+      "deg": 106,
+      "clouds": 1
+    },
+    {
+      "dt": 1487066400,
+      "temp": {
+        "day": 270,
+        "min": 259.72,
+        "max": 270,
+        "night": 265.72,
+        "eve": 268.45,
+        "morn": 259.72
+      },
+      "pressure": 1027.21,
+      "humidity": 0,
+      "weather": [
+        {
+          "id": 800,
+          "main": "Clear",
+          "description": "clear sky",
+          "icon": "01d"
+        }
+      ],
+      "speed": 5.19,
+      "deg": 301,
+      "clouds": 37
+    },
+    {
+      "dt": 1487152800,
+      "temp": {
+        "day": 273.8,
+        "min": 263.51,
+        "max": 273.8,
+        "night": 263.51,
+        "eve": 267.06,
+        "morn": 266.31
+      },
+      "pressure": 1025.7,
+      "humidity": 0,
+      "weather": [
+        {
+          "id": 800,
+          "main": "Clear",
+          "description": "clear sky",
+          "icon": "01d"
+        }
+      ],
+      "speed": 2.08,
+      "deg": 200,
+      "clouds": 6
+    }
+  ]
+}

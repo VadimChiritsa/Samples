@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://web-harvest.sourceforge.net/schema/1.0/config"
+	scriptlang="groovy">
+	
+  	<include-config code="bot_htmlCreater"></include-config>
+	
+  	<var-def name="inputJson">
+		<template>${field_json}</template>
+	</var-def>
+
+	<script><![CDATA[
+		import groovy.json.*;
+		import java.util.stream.*;
+		import org.slf4j.LoggerFactory;
+        import org.slf4j.Logger;
+		
+		def jsonSlurper = new JsonSlurper();
+		def dataFromJsonList = jsonSlurper.parseText(inputJson.toString().replace("BARBECUE", "barbecue").replace("RED", "red").replace("YELLOW", "yellow"));
+				
+
+		def templateHtmlPage = "<html>\n"+
+				"<style>\ntable, th, td { border: 1px solid black; border-collapse: collapse;\n</style>\n"+
+				"<table style=\"width:100%%; margin-right:3%%\">\n"+
+				"<tr align=\"center\">\n"+
+				"<th>DATE</th><th>TIME</th>\n<th>Room1</th>\n<th>Room2</th>\n<th>Room3</th>\n</tr>\n"+
+				"%s"+ "\n" +"</table>\n</html>";
+		
+		def templateContent ="<tr align=\"center\">\n"+
+				"<td><p>"+"%s"+"</p></td>\n"+
+				"<td><p>"+"%s"+" - "+ "%s"+"</p></td>\n"+
+				"<td><p>"+"%s"+"</p></td>\n"+
+				"<td><p>"+"%s"+"</p></td>\n"+
+				"<td><p>"+"%s"+"</p></td>\n</tr>";
+
+		log.info("[LOGGER]: create Html page");
+		def createHtml = html_creater.getWrappedObject();
+		def htmlPage = createHtml.stepCreateHtmlPage(dataFromJsonList, templateHtmlPage, templateContent);
+		println htmlPage;
+		sys.defineVariable("htmlPage", htmlPage);			
+	]]></script>
+
+	<export include-original-data="true">
+		<single-column name="html_page" value="${htmlPage}" />
+	</export>
+
+</config>

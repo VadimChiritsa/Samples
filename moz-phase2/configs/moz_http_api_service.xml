@@ -1,0 +1,311 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://web-harvest.sourceforge.net/schema/1.0/config"
+	scriptlang="groovy">
+
+	<script><![CDATA[
+		import java.util.ArrayList;
+		import java.util.List;
+
+		public class Credentials {
+
+			//responce from server with idintefiers for date and count value
+			public static final String QTY_PSEUDONIM = "count";
+			public static final String DATE_PSEUDONIM = "date";
+
+			//responce from server with idintefiers for LOST/DISCOVERED links for root domain
+			public static final String LOST_LINKS_ROOT_DOMAIN_PSEUDONIM = "plds_to_pld_lost";
+			public static final String DISCOVERED_LINKS_ROOT_DOMAIN_PSEUDONIM = "plds_to_pld_gained";
+
+			//responce from server with idintefiers for LOST/DISCOVERED links for sub-domain
+			public static final String LOST_LINKS_SUBDOMAIN_PSEUDONIM = "plds_to_fqdn_lost";
+			public static final String DISCOVERED_LINKS_SUBDOMAIN_PSEUDONIM = "plds_to_fqdn_gained";
+
+			//responce from server with idintefiers for LOST/DISCOVERED links for exact page
+			public static final String LOST_LINKS_EXACT_PAGE_PSEUDONIM = "plds_to_url_lost";
+			public static final String DISCOVERED_LINKS_EXACT_PAGE_DOMAIN_PSEUDONIM = "plds_to_url_gained";
+
+			public static final String COLUMN_ROOT_DOMAIN = "rootdomain";
+			public static final String COLUMN_SUB_DOMAIN = "subdomain";
+			public static final String COLUMN_EXACT_PAGE = "exact domain";
+
+
+			public static final Long PERIOD = 60 * 24 * 3600 * 1000L; //days*hours*seconds*milliseconds == duration of gathering data
+			public static final long DELAY = 1_000; //delay beetwen http requests, ms
+
+			//column titles, which is put to datastore
+			public static final String NET_COLUMN_TITLE = "NET";
+			public static final String DISCOVERED_COLUMN_TITLE = "DISCOVERED";
+			public static final String LOST_COLUMN_TITLE = "LOST";
+
+			//between LINK_STARTS and LINK_ENDS code put current web-site and all this is equal to API enquery
+			public static final String LINK_STARTS = "https://analytics.moz.com/listerine/api/1.4/idina/url_metrics?site=";
+			public static final String LINK_ENDS = "&daily_history=plds_to_pld%2Bplds_to_fqdn%2Bplds_to_url&distributions=true&include_keyword_counts[]=domain&version=1";
+
+			public static final String HOST = "www.moz.com";
+
+			public static List<String> getLostLinksPseudonims () {
+				List<String> lostLinksPseudonim = new ArrayList<>();
+				lostLinksPseudonim.add(LOST_LINKS_ROOT_DOMAIN_PSEUDONIM);
+				lostLinksPseudonim.add(LOST_LINKS_SUBDOMAIN_PSEUDONIM);
+				lostLinksPseudonim.add(LOST_LINKS_EXACT_PAGE_PSEUDONIM);
+				return lostLinksPseudonim;
+			}
+
+			public static List<String> getDiscoveredLinksPseudonims () {
+				List<String> discoveredLinksPseudonim = new ArrayList<>();
+				discoveredLinksPseudonim.add(DISCOVERED_LINKS_ROOT_DOMAIN_PSEUDONIM);
+				discoveredLinksPseudonim.add(DISCOVERED_LINKS_SUBDOMAIN_PSEUDONIM);
+				discoveredLinksPseudonim.add(DISCOVERED_LINKS_EXACT_PAGE_DOMAIN_PSEUDONIM);
+				return discoveredLinksPseudonim;
+			}
+
+			public static List<String> getColumnsTitles() {
+				List<String> columnsTitles = new ArrayList<>();
+				columnsTitles.add(COLUMN_ROOT_DOMAIN);
+				columnsTitles.add(COLUMN_SUB_DOMAIN);
+				columnsTitles.add(COLUMN_EXACT_PAGE);
+				return columnsTitles;
+			}
+			public static void main(String[] args) throws IOException {
+			}
+		}
+
+		import org.openqa.selenium.Cookie;
+		import java.net.HttpURLConnection;
+		import java.net.MalformedURLException;
+		import java.net.URL;
+		import java.util.HashMap;
+		import java.util.HashSet;
+
+		public class HTTPRequester {
+			private logger;
+			private HashSet<Cookie> cookies;
+
+			public HTTPRequester(def logger) {
+				this.logger = logger;
+			}
+
+			public void setCookies(HashSet<Cookie> cookies) {
+				this.cookies = cookies;
+			}
+
+			public HashMap connect(String link)  {
+				HashMap<String, HashMap> result = null;
+				sleep(); //connecntion per second limit
+				URL url;
+				String currentURL = Credentials.LINK_STARTS + link + Credentials.LINK_ENDS;
+
+				url = new URL(currentURL);
+
+				HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+				String cookie = makeStringCfCookies(cookies);
+				conn.setRequestProperty("Cookie", cookie);
+				conn.addRequestProperty("User-Agent", "Chrome");
+				conn.setReadTimeout(15 * 1000);
+				conn.setUseCaches(true);
+				conn.setDoOutput(false);
+				conn.setDoInput(true);
+				conn.setRequestMethod("GET");
+				conn.setRequestProperty("Host", Credentials.HOST);
+				conn.connect();
+				conn.setInstanceFollowRedirects(true);
+
+				int status;
+				BufferedReader br = null;
+
+				status = conn.getResponseCode();
+				logger.info("responce code: " + status);
+				if (status > 300) {
+					br = new BufferedReader(new InputStreamReader(conn.getErrorStream()));
+				} else {
+					br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+				}
+				String inputLine;
+				while ((inputLine = br.readLine()) != null) {
+					JSON json = new JSON(inputLine, link, logger);
+					result = json.run();
+				}
+				br.close();
+				conn.disconnect();
+				return result;
+			}
+
+			private String makeStringCfCookies (HashSet<Cookie> cookies) {
+				String string = "";
+				for (Cookie cookie : cookies) {
+					String name = cookie.getName();
+					String value = cookie.getValue();
+					string = string + name + "=" + value + ";";
+				}
+				return string;
+			}
+
+			private void sleep() {
+				Thread.sleep(Credentials.DELAY);
+			}
+
+			public static void main(String[] args) throws IOException {
+			}
+
+		}
+
+		import org.json.JSONArray;
+		import org.json.JSONObject;
+		import java.text.ParseException;
+		import java.text.SimpleDateFormat;
+
+		public class JSON {
+
+			private String responce;
+			private String link;
+			private List<String> columns;
+			private logger
+
+			public JSON(String responce, String link, def logger) {
+				this.responce = responce;
+				this.link=link;
+				this.logger = logger;
+			}
+
+			public HashMap run() {
+				columns = Credentials.getColumnsTitles();
+				HashMap<String, HashMap> columnsMap = new HashMap<>();
+				for (int i=0; i<columns.size(); i++) {
+					columnsMap.put(columns.get(i), getValuesForColumn(columns.get(i), Credentials.getDiscoveredLinksPseudonims().get(i), Credentials.getLostLinksPseudonims().get(i)));
+				}
+				return columnsMap;
+			}
+
+
+			public HashMap getValuesForColumn(String columnTitle, String discoveredKey, String lostKey) {
+				HashMap<String, String> valuesMap =new HashMap<>();
+				JSONObject json = new JSONObject(responce);
+				JSONArray jsonLostArray = new JSONArray(json.get(lostKey).toString());
+				JSONArray jsonDiscoveredArray = new JSONArray(json.get(discoveredKey).toString());
+				int lost = calculateSum(jsonLostArray);
+				int discovered = calculateSum(jsonDiscoveredArray);
+				logger.info("LINK : [" + link + "], COLUMN: [" + columnTitle + "], DISCOVERED: [" + discovered + "], LOST: [" + lost + "], NET: [" + (discovered - lost) + "]");
+				valuesMap.put(Credentials.DISCOVERED_COLUMN_TITLE, ""+discovered);
+				valuesMap.put(Credentials.LOST_COLUMN_TITLE, ""+lost);
+				valuesMap.put(Credentials.NET_COLUMN_TITLE, ""+(discovered-lost));
+				return valuesMap;
+			}
+
+			private int calculateSum(JSONArray jsonArray) {
+				int sum = 0;
+				for (int i = 0; i < jsonArray.length(); i++) {
+					String currentDate = jsonArray.getJSONObject(i).get(Credentials.DATE_PSEUDONIM).toString();
+					if (isValidDate(currentDate)) {
+						int currentDateValue = Integer.parseInt(jsonArray.getJSONObject(i).get(Credentials.QTY_PSEUDONIM).toString());
+						sum += currentDateValue;
+					}
+				}
+				return sum;
+			}
+
+			private boolean isValidDate(String date) {
+				SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
+				Calendar calendar = new GregorianCalendar();
+				Date currentDate=null;
+				currentDate = simpleDateFormat.parse(simpleDateFormat.format(calendar.getTime()));
+				calendar.setTime(currentDate);
+				long currentDateMillis = calendar.getTimeInMillis();
+				calendar.setTime(simpleDateFormat.parse(date));
+				long dateMillis = calendar.getTimeInMillis();
+				return (currentDateMillis - dateMillis) < Credentials.PERIOD;
+			}
+
+			public static void main(String[] args) throws IOException {
+			}
+		}
+
+		public class Runner {
+			private HTTPRequester httpRequester;
+			private HashMap<String, HashMap> result;
+			private List<HashMap> resultToDatastore;
+			private def logger;
+			private List<String> listUrls;
+			private def dataStoreData;
+			private HashMap<String, HashMap> hashMapDataStore;
+			private def properties;
+			private def columnsTitles;
+
+			public static void main(String[] args) throws IOException {
+			}
+
+			public List<HashMap> getResult() {
+				return resultToDatastore;
+			}
+
+			public void setInstance(def log, def listUrls, def dataStoreData, def properties, def columnsTitles) {
+				this.logger = log;
+				this.listUrls = listUrls;
+				this.dataStoreData = dataStoreData;
+				this.properties = properties;
+				this.columnsTitles=columnsTitles;
+			}
+
+			public void makeGood(HashSet<Cookie> hashSet) throws IOException {
+				httpRequester = new HTTPRequester(logger);
+				httpRequester.setCookies(hashSet);
+				makeRequest();
+			}
+
+			public void makeRequest() throws IOException {
+				convertDataToHashMap();
+				result = new HashMap<>();
+				resultToDatastore = new ArrayList();
+				for (String link:listUrls) {
+					logger.info(link);
+					Map<String, HashMap> currentLinkMap = httpRequester.connect(link);
+					createListOfMapsWithCollectedInformation(link, currentLinkMap);
+					result.put(link, currentLinkMap);
+				}
+				logger.info("FINAL HASHMAP: ["+result+"]");
+				logger.info("FINAL LIST: ["+resultToDatastore+"]");
+			}
+
+			private void convertDataToHashMap() {
+				hashMapDataStore = new HashMap();
+				for (row in dataStoreData) {
+					Map informationMap = new HashMap();
+					//fill data for rootDomain
+					informationMap.put(columnsTitles.URL.toString(), row.get(columnsTitles.URL).toString());
+					informationMap.put(columnsTitles.LINKING_DOMAINS_ROOT_DOMAIN.toString(), row.get(columnsTitles.LINKING_DOMAINS_ROOT_DOMAIN).toString());
+					informationMap.put(columnsTitles.DOMAIN_AUTHORITY_ROOT_DOMAIN.toString(), row.get(columnsTitles.DOMAIN_AUTHORITY_ROOT_DOMAIN).toString());
+					informationMap.put(columnsTitles.INBOUND_LINKS_ROOT_DOMAIN.toString(), row.get(columnsTitles.INBOUND_LINKS_ROOT_DOMAIN).toString());
+					//fill data for subDomain
+					informationMap.put(columnsTitles.LINKING_DOMAINS_SUB_DOMAIN.toString(), row.get(columnsTitles.LINKING_DOMAINS_SUB_DOMAIN).toString());
+					informationMap.put(columnsTitles.DOMAIN_AUTHORITY_SUB_DOMAIN.toString(), row.get(columnsTitles.DOMAIN_AUTHORITY_SUB_DOMAIN).toString());
+					informationMap.put(columnsTitles.INBOUND_LINKS_SUB_DOMAIN.toString(), row.get(columnsTitles.INBOUND_LINKS_SUB_DOMAIN).toString());
+
+					hashMapDataStore.put(row.get(columnsTitles.URL).toString(), informationMap);
+				}
+			}
+
+			private void createListOfMapsWithCollectedInformation(String link, Map<String,HashMap> currentLink){
+				Map informationMap = new LinkedHashMap();
+				informationMap.put(columnsTitles.URL, link);
+				//fill data for rootDomain
+				informationMap.put(columnsTitles.LINKING_DOMAINS_ROOT_DOMAIN, hashMapDataStore.get(link).get(columnsTitles.LINKING_DOMAINS_ROOT_DOMAIN));
+				informationMap.put(columnsTitles.DOMAIN_AUTHORITY_ROOT_DOMAIN, hashMapDataStore.get(link).get(columnsTitles.DOMAIN_AUTHORITY_ROOT_DOMAIN));
+				informationMap.put(columnsTitles.INBOUND_LINKS_ROOT_DOMAIN, hashMapDataStore.get(link).get(columnsTitles.INBOUND_LINKS_ROOT_DOMAIN));
+				informationMap.put(columnsTitles.JUST_DISCOVERED_ROOT_DOMAIN, currentLink.get(Credentials.COLUMN_ROOT_DOMAIN).get(Credentials.DISCOVERED_COLUMN_TITLE));
+				informationMap.put(columnsTitles.LOST_ROOT_DOMAIN, currentLink.get(Credentials.COLUMN_ROOT_DOMAIN).get(Credentials.LOST_COLUMN_TITLE));
+				informationMap.put(columnsTitles.NET_ROOT_DOMAIN, currentLink.get(Credentials.COLUMN_ROOT_DOMAIN).get(Credentials.NET_COLUMN_TITLE));
+				//fill data for subDomain
+				informationMap.put(columnsTitles.LINKING_DOMAINS_SUB_DOMAIN, hashMapDataStore.get(link).get(columnsTitles.LINKING_DOMAINS_SUB_DOMAIN));
+				informationMap.put(columnsTitles.DOMAIN_AUTHORITY_SUB_DOMAIN, hashMapDataStore.get(link).get(columnsTitles.DOMAIN_AUTHORITY_SUB_DOMAIN));
+				informationMap.put(columnsTitles.INBOUND_LINKS_SUB_DOMAIN, hashMapDataStore.get(link).get(columnsTitles.INBOUND_LINKS_SUB_DOMAIN));
+				informationMap.put(columnsTitles.JUST_DISCOVERED_SUB_DOMAIN, currentLink.get(Credentials.COLUMN_SUB_DOMAIN).get(Credentials.DISCOVERED_COLUMN_TITLE));
+				informationMap.put(columnsTitles.LOST_SUB_DOMAIN, currentLink.get(Credentials.COLUMN_SUB_DOMAIN).get(Credentials.LOST_COLUMN_TITLE));
+				informationMap.put(columnsTitles.NET_SUB_DOMAIN, currentLink.get(Credentials.COLUMN_SUB_DOMAIN).get(Credentials.NET_COLUMN_TITLE));
+				resultToDatastore.add(informationMap)
+			}
+		}
+
+		sys.defineVariable("http_service_moz", new Runner())
+	]]></script>
+	<export include-original-data="true"></export>
+
+</config>

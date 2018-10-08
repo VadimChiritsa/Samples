@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://web-harvest.sourceforge.net/schema/1.0/config"
+	scriptlang="groovy">
+
+	<log>###runner_collect_data_from_site_to_DS###</log>
+	
+	<include-config code="stopper"></include-config>
+	<include-config code="properties"></include-config>
+	<include-config code="email_sender_javax"></include-config>
+	<include-config code="page_object_search_page"></include-config>
+	<include-config code="page_object_login_page"></include-config>
+	<include-config code="page_object_main_page"></include-config>
+	<include-config code="secure_ds"></include-config>
+	<include-config code="waiters"></include-config>
+
+	<script><![CDATA[
+		log.info("###runner_collect_data_from_site_to_DS###");
+		properties = propertiesObject.getWrappedObject();
+		secureDatastore = datastore.getWrappedObject();
+		emailFrom = secureDatastore.getEmailService();
+		emailTo = properties.EMAIL_TO;
+		emailCC = properties.EMAIL_CC;
+		password = secureDatastore.getEmailServicePassword();
+		attemptMaxQty = properties.RUNNER_COLLECT_DATA_FROM_SITE_UI_ATTEMPT_MAX_QTY; //Put here yor attempts max value
+		cachelifeCycle = properties.RUNNER_COLLECT_DATA_FROM_SITE_UI_CACHE_LIFE_CYCLE //Put here yor Values in SECONDS
+		botTitle = properties.RUNNER_COLLECT_DATA_FROM_SITE_UI_BOT_TITLE //Put here yor bot title
+		stopperClass =  stopperObject.getWrappedObject();
+		stopperClass.setBotParameters(attemptMaxQty,cachelifeCycle, botTitle, log);
+		stacktrace="";
+		isExecuteCode = true; //isExecuteCode means that we didn't exceed the limit of attemtps or isCacheValid!=true (for first attempt isExecuteCode alwaus ==true)
+	]]></script>
+
+	<while condition="${isExecuteCode}">
+		don't change anything here
+		<call name="initialize_cache_and_attempts_qty">
+			<call-param name="stopperClassPassedObject">
+				<script return="stopperClass"><![CDATA[
+					return stopperClass;
+				]]></script>
+			</call-param>
+		</call>
+
+
+		<script><![CDATA[
+			isOneMoreAttemptAvailable = stopperClass.checkAttemtpsQty(); //isOneMoreAttemptAvailable means we didn't exceed a limit of attempts
+			if (!isOneMoreAttemptAvailable) { //if we exceeded the limit, generate new exception not in the try loop
+
+				if(item.getWrappedObject().getSubmission().getAwsHit().getProcessingAttempts()==0){
+
+					//send fail email
+					emailSender = emailSenderObject.getWrappedObject().getInstance(emailFrom, emailTo, password, log);
+					emailSender
+							.setSubject("BP " + item.getWrappedObject().getRun().getCampaignName().toString() + " - crashed")
+							.setBody("BP " + item.getWrappedObject().getRun().getCampaignName().toString() + " - crashed" + "\n"+
+							"- Instance name: " + applicationHost.getWrappedObject().toString() + "\n" +
+							"- Bot name: " + item.getWrappedObject().getCampaignDto().getTitle().toString() + "\n" +
+							"- Start date: " + item.getWrappedObject().getRun().getStartDate().toString() + "\n" +
+							"- Link to BP: " + applicationHost.getWrappedObject().toString() +
+							"/workfusion/secure/business-process/edit/"+item.getWrappedObject().getRun().getRootRunUuid().toString())
+							.setBody(stacktrace.toString(), "ERROR")
+							.setCC(emailCC)
+							.build()
+							.perform();
+								
+				}
+
+				throw new Exception("STOP PROCESS");
+			}
+			isCacheValid = stopperClass.isCacheValid(); //isCacheValid means we have a good last attempt not far away in the past
+			isExecuteCode = isOneMoreAttemptAvailable&(!isCacheValid);
+		]]></script>
+
+		<case>
+			<if condition="${isCacheValid}"> <!-- cache good -> omit excecution of the bot -->
+				<script><![CDATA[
+					log.info(botTitle + " has omitted execution, it has the valid cache");
+				]]></script>
+			</if>
+			<else>
+				<try>
+					<body>
+						<!-- put your code here -->
+
+						<robotics-flow>
+							<robot driver="chrome" start-in-private="true"
+								maximize-on-startup="true" name="robot" close-on-completion="true">
+								<capability name="chromeOptions">
+									<script return="options"><![CDATA[
+										options = new org.openqa.selenium.chrome.ChromeOptions();
+										properties = [:];
+										properties.put("profile.default_content_setting_values.geolocation", 2);
+										properties.put("profile.default_content_setting_values.notifications", 2);
+										options.setExperimentalOption("prefs", properties);
+									]]></script>
+								</capability>
+								<script><![CDATA[
+									import org.openqa.selenium.interactions.Actions;
+									WebDriver driver = driver();
+									WFLogger.createLogger(log);
+
+									log.info("Start to create object of the Properties");
+									def properties = propertiesObject.getWrappedObject();
+									log.info("Object of the class Properties successfully created");
+
+									log.info("Start to create object of the columnsTitlesObject");
+									def columnsObject = columnsTitlesObject.getWrappedObject();
+									log.info("Object of the class columnsTitlesObject successfully created");
+
+									log.info("Start to create object of the Waiters");
+									def waiters = waitersObject.getWrappedObject();
+									log.info("Object of the class Waiters successfully created");
+									waiters.setInctance(driver, log);
+									log.info("Driver in the Waiters was initilized");
+
+									log.info("Start to create object of the Secure Datastore");
+									def dataStoreObject = datastore.getWrappedObject();
+									log.info("Object of the class Secure Datastore successfully created");
+
+									log.info("Create object of the LoginPageActions");
+									def loginPageActions = login_page_actions.getWrappedObject();
+									log.info("Object of the class LoginPageActions successfully created");
+									loginPageActions.setInstance(driver, log, waiters,dataStoreObject, properties);
+									log.info("Driver and logger in the LoginPageActions were initilized");
+
+									log.info("Create object of the MainPageActions");
+									def mainPageActions = main_page_actions.getWrappedObject();
+									log.info("Object of the class MainPageActions successfully created");
+									mainPageActions.setInstance(driver, log, waiters,dataStoreObject, properties);
+									log.info("Driver and logger in the MainPageActions were initilized");
+
+									log.info("Create object of the SearchPageActions");
+									def searchPageActions = search_page_actions.getWrappedObject();
+									log.info("Object of the class SearchPageActions successfully created");
+									searchPageActions.setInstance(driver, log, waiters,dataStoreObject, properties, columnsObject);
+									log.info("Driver and logger in the SearchPageActions were initilized");
+
+									datastoreName= properties.DS_NAME;
+									dataStoreMapList=[]
+									jsonDataList=[]
+
+									loginPageActions.enterMail();
+									mainPageActions.getSearchPage ();
+									jsonDataList = searchPageActions.collectData();
+								]]></script>
+							</robot>
+						</robotics-flow>
+						<create-datastore name="${datastoreName}"></create-datastore>
+
+						<datastore name="${datastoreName}">
+							delete from @this;
+						</datastore>
+
+						<loop item="row">
+							<list>
+								<script return="jsonDataList" />
+							</list>
+							<body>
+								<insert-datastore datastore-name="${datastoreName}"
+									json-value-map="${row}" create="true" />
+							</body>
+						</loop>
+
+
+						<!-- end of your code -->
+
+						<!-- don't change anything here -->
+						<call name="increment_attempts_qty">
+							<call-param name="stopperClassPassedObject">
+								<script return="stopperClass"><![CDATA[
+									return stopperClass;
+								]]></script>
+							</call-param>
+						</call>
+						<!-- don't change anything here -->
+						<call name="store_last_good_attempt">
+							<call-param name="stopperClassPassedObject">
+								<script return="stopperClass"><![CDATA[
+									isExecuteCode = false; //if process successfully finishes execution, while loop will be interrupted by isExecuteCode
+									return stopperClass;
+								]]></script>
+							</call-param>
+						</call>
+					</body>
+					<catch>
+						<!-- put comments here -->
+						<script><![CDATA[
+							log.error(_exception_message.getWrappedObject(), _exception.getWrappedObject())
+							stacktrace=_exception_stacktrace.getWrappedObject().toString();
+							stopperClass.setErrorMessage("AN ERROR occured on the attempt No: "+(stopperClass.getQty()+1) + _exception_message.getWrappedObject() + _exception.getWrappedObject());
+						]]></script>
+						<!-- don't change anything here -->
+						<call name="increment_attempts_qty">
+							<call-param name="stopperClassPassedObject">
+								<script return="stopperClass"><![CDATA[
+									return stopperClass;
+								]]></script>
+							</call-param>
+						</call>
+					</catch>
+				</try>
+			</else>
+		</case>
+	</while>
+
+	<export include-original-data="true"></export>
+
+</config>

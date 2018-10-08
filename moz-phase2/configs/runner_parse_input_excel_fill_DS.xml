@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://web-harvest.sourceforge.net/schema/1.0/config"
+	scriptlang="groovy">
+
+	<log>###runner_parse_input_excel_fill_DS###</log>
+	
+	<include-config code="stopper"></include-config>
+	<include-config code="properties"></include-config>
+	<include-config code="email_sender_javax"></include-config>
+	<include-config code="secure_ds"></include-config>
+	
+	<script><![CDATA[
+	    properties = propertiesObject.getWrappedObject();
+		attemptMaxQty = properties.RUNNER_PARSE_INPUT_EXCEL_FILL_DS_ATTEMPT_MAX_QTY; //Put here yor attempts max value
+		cachelifeCycle = properties.RUNNER_PARSE_INPUT_EXCEL_FILL_DS_CACHE_LIFE_CYCLE; //Put here yor Values in SECONDS
+		botTitle = properties.RUNNER_PARSE_INPUT_EXCEL_FILL_DS_BOT_TITLE //Put here yor bot title
+		secureDatastore = datastore.getWrappedObject();
+		emailFrom = secureDatastore.getEmailService();
+		emailTo = properties.EMAIL_TO;
+		emailCC = properties.EMAIL_CC;
+		password = secureDatastore.getEmailServicePassword();
+		stopperClass =  stopperObject.getWrappedObject();
+		stopperClass.setBotParameters(attemptMaxQty,cachelifeCycle, botTitle, log);
+		stacktrace="";
+		isExecuteCode = true; //isExecuteCode means that we didn't exceed the limit of attemtps or isCacheValid!=true (for first attempt isExecuteCode alwaus ==true)
+	]]></script>
+
+	<while condition="${isExecuteCode}">
+		don't change anything here
+		<call name="initialize_cache_and_attempts_qty">
+			<call-param name="stopperClassPassedObject">
+				<script return="stopperClass"><![CDATA[
+					return stopperClass;
+				]]></script>
+			</call-param>
+		</call>
+
+
+		<script><![CDATA[
+			isOneMoreAttemptAvailable = stopperClass.checkAttemtpsQty(); //isOneMoreAttemptAvailable means we didn't exceed a limit of attempts
+			if (!isOneMoreAttemptAvailable) { //if we exceeded the limit, generate new exception not in the try loop
+
+				if(item.getWrappedObject().getSubmission().getAwsHit().getProcessingAttempts()==0){
+
+					//send fail email
+					emailSender = emailSenderObject.getWrappedObject().getInstance(emailFrom, emailTo, password, log);
+					emailSender
+							.setSubject("BP " + item.getWrappedObject().getRun().getCampaignName().toString() + " - crashed")
+							.setBody("BP " + item.getWrappedObject().getRun().getCampaignName().toString() + " - crashed" + "\n"+
+							"- Instance name: " + applicationHost.getWrappedObject().toString() + "\n" +
+							"- Bot name: " + item.getWrappedObject().getCampaignDto().getTitle().toString() + "\n" +
+							"- Start date: " + item.getWrappedObject().getRun().getStartDate().toString() + "\n" +
+							"- Link to BP: " + applicationHost.getWrappedObject().toString() +
+							"/workfusion/secure/business-process/edit/"+item.getWrappedObject().getRun().getRootRunUuid().toString())
+							.setBody(stacktrace.toString(), "ERROR")
+							.setCC(emailCC)
+							.build()
+							.perform();
+
+				}
+
+				throw new Exception("STOP PROCESS");
+			}
+			isCacheValid = stopperClass.isCacheValid(); //isCacheValid means we have a good last attempt not far away in the past
+			isExecuteCode = isOneMoreAttemptAvailable&(!isCacheValid);
+		]]></script>
+
+		<case>
+			<if condition="${isCacheValid}"> <!-- cache good -> omit excecution of the bot -->
+				<script><![CDATA[
+					log.info(botTitle + " has omitted execution, it has the valid cache");
+				]]></script>
+			</if>
+			<else>
+				<try>
+					<body>
+
+						<!-- put your code here -->
+						<include-config code="excel_editor"></include-config>
+						<script><![CDATA[
+							//path to File
+							filePath = properties.FILE_PATH+properties.FILE_NAME;
+
+							//Input column with url
+							column="B"
+
+							//Input sheet with needed Column
+							sheetName="Current"
+
+							// Header size
+							headerSize=1
+
+							// datastore name
+							datastoreName= properties.DS_NAME
+
+							//Final List
+							jsonDataList=[]
+
+							//include bot object
+							excelRead = excel_editor.getWrappedObject();
+						]]></script>
+
+						<robotics-flow>
+							<robot driver="desktop" name="desktopWrapper" close-on-completion="true">
+								<script><![CDATA[
+									getFileContent = {RemoteWebDriver dDriver, String filePath ->
+										Object res = dDriver.executeScript(
+												"def bytes = new File('" + filePath.replace('\\', '/') + "').bytes; \n"
+												+ "return Base64.getEncoder().encodeToString(bytes);", "GROOVY")
+										byte[] content = Base64.getDecoder().decode(res.toString())
+										return content
+									}
+
+									fileInBytes = getFileContent(driver(),filePath)
+									excelRead.setFile(fileInBytes)
+								]]></script>
+							</robot>
+						</robotics-flow>
+
+						<script><![CDATA[
+							// Read ExcelFile
+							excelRead.readExcelBook()
+
+							//Get Template Sheet
+							workSheet = excelRead.getSheet(sheetName)
+
+							// Collect Data to ListMap
+							urlMapList = excelRead.getColumnValues(workSheet, headerSize, column)
+									.stream()
+									.map({  url->
+										map=[:]
+										map.put("URL",url)
+										return map
+									})
+									.collect()
+
+							// Transform list to jsonList
+							jsonDataList=urlMapList.stream().map({map->new com.google.gson.Gson().toJson(map)}).collect()
+						]]></script>
+
+						<create-datastore name="${datastoreName}"></create-datastore>
+
+						<datastore name="${datastoreName}">
+							delete from @this;
+						</datastore>
+
+						<loop item="row">
+							<list>
+								<script return="jsonDataList" />
+							</list>
+							<body>
+								<insert-datastore datastore-name="${datastoreName}"
+									json-value-map="${row}" create="true" />
+							</body>
+						</loop>
+
+						<!-- end of your code -->
+
+						<!-- don't change anything here -->
+						<call name="increment_attempts_qty">
+							<call-param name="stopperClassPassedObject">
+								<script return="stopperClass"><![CDATA[
+									return stopperClass;
+								]]></script>
+							</call-param>
+						</call>
+						<!-- don't change anything here -->
+						<call name="store_last_good_attempt">
+							<call-param name="stopperClassPassedObject">
+								<script return="stopperClass"><![CDATA[
+									isExecuteCode = false; //if process successfully finishes execution, while loop will be interrupted by isExecuteCode
+									return stopperClass;
+								]]></script>
+							</call-param>
+						</call>
+					</body>
+					<catch>
+						<!-- put comments here -->
+						<script><![CDATA[
+							log.error(_exception_message.getWrappedObject(), _exception.getWrappedObject())
+							stacktrace=_exception_stacktrace.getWrappedObject().toString();
+							stopperClass.setErrorMessage("AN ERROR occured on the attempt No: "+(stopperClass.getQty()+1) + _exception_message.getWrappedObject() + _exception.getWrappedObject());
+						]]></script>
+						<!-- don't change anything here -->
+						<call name="increment_attempts_qty">
+							<call-param name="stopperClassPassedObject">
+								<script return="stopperClass"><![CDATA[
+									return stopperClass;
+								]]></script>
+							</call-param>
+						</call>
+					</catch>
+				</try>
+			</else>
+		</case>
+	</while>
+
+	<export include-original-data="true"></export>
+
+</config>

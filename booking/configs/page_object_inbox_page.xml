@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://web-harvest.sourceforge.net/schema/1.0/config"
+	scriptlang="groovy">
+
+	<script><![CDATA[
+		public class InboxPageActions {
+			private WebDriver driver;
+			private def logger;
+			private def utils;
+			private def credentials;
+			private List allMeetingsInformationList;
+			private List informationAboutOneMeetingList;
+			private List roomsInMeetingList;
+			private Map informationAboutMeetingMap;
+			private Map informationAboutRoomMap;
+			private InboxPageElements inboxPageElements;
+			private BookedUnbookedMeetings bookedUnbookedMeetings;
+
+			public InboxPageActions() {
+			}
+			public static void main(String[] args) {
+			}
+
+			public setInstance(WebDriver driver, def log, def utils, def credentials) {
+				this.driver = driver;
+				this.logger = log;
+				this.utils = utils;
+				this.credentials = credentials;
+				this.inboxPageElements= new InboxPageElements(utils,log);
+				this.bookedUnbookedMeetings = new BookedUnbookedMeetings(log)
+			}
+
+
+			public void collectInformationAboutRooms(int amountMeetings){
+				logger.info("Start collect information about meetings")
+				allMeetingsInformationList=new ArrayList();
+
+				for (link in getMessagesFromRoomsList(amountMeetings)){
+					informationAboutOneMeetingList= new ArrayList();
+
+					openMessage(link)
+
+					informationAboutMeetingMap= new LinkedHashMap();
+					//creating empty keys in map
+					createKeysForMap(informationAboutMeetingMap)
+
+					getInformationAboutRoomsInOneMeenting(inboxPageElements.getRoomsFromOneMeeting().size())
+
+					String meetingDateAndTime=informationAboutOneMeetingList.get(0).get("Meeting time");
+					informationAboutMeetingMap.put("Date", getDate(meetingDateAndTime.toString()))
+					informationAboutMeetingMap.put("Time", getTime(meetingDateAndTime.toString()))
+
+					fillResponseFromRooms(informationAboutOneMeetingList, informationAboutMeetingMap)
+					allMeetingsInformationList.add(informationAboutMeetingMap)
+					markMessageAsRead()
+				}
+				logger.info("List information about all meetings: "+ allMeetingsInformationList.toString())
+				logger.info("Start collect information about meetings - FINISHED SUCCESFUL")
+			}
+
+			public List getAllMeetingsInformationList() {
+				logger.info("METHOD: getAllMeetingsInformationList")
+				return allMeetingsInformationList;
+			}
+
+			public void fillInformationAboutBookedUnbookedMeetings(List informationAboutAllMeetings){
+				bookedUnbookedMeetings.fillListBookUnbook(informationAboutAllMeetings)
+			}
+
+			public List getAddToCCList() {
+				return bookedUnbookedMeetings.getAddToCCList();
+			}
+			public List getUnbookedMeetingList() {
+				return bookedUnbookedMeetings.getUnbookedMeetingList();
+			}
+
+			private void markMessageAsRead(){
+				logger.info("STEP: mark message as read")
+				inboxPageElements.getButtonMoreActions().click()
+				inboxPageElements.getButtonMarkAsRead().click()
+				logger.info("STEP: mark message as read - FINISHED SUCCESSFUL")
+			}
+
+			private void openMessage(WebElement room){
+				logger.info("STEP: open message")
+				room.click()
+				logger.info("STEP: open message - FINISHED SUCCESSFUL")
+			}
+
+			private List<WebElement> getMessagesFromRoomsList(int amountMeetings){
+				return inboxPageElements.getUnreadMessagesAboutRequsts(amountMeetings)
+			}
+
+			private void createKeysForMap(HashMap informationAboutMeetingMap){
+				informationAboutMeetingMap.put("Date", "")
+				informationAboutMeetingMap.put("Time", "")
+				informationAboutMeetingMap.put(credentials.ROOM_RED, "0")
+				informationAboutMeetingMap.put(credentials.ROOM_BARBECUE,"0" )
+				informationAboutMeetingMap.put(credentials.ROOM_YELLOW, "0")
+			}
+
+			private void fillResponseFromRooms(List informationAboutOneMeetingList, HashMap informationAboutMeetingMap){
+				for(room in informationAboutOneMeetingList){
+					informationAboutMeetingMap.put(room.get("Room name").trim(), room.get("Response"))
+				}
+			}
+
+			private void getInformationAboutRoomsInOneMeenting(int size){
+				for( int number=1;number<size;number++){
+					logger.info("STEP: open room in message")
+					inboxPageElements.getCurrentRoom(number).click()
+					logger.info("STEP: open room in message - FINISHED SUCCESSFUL")
+
+					informationAboutRoomMap = new HashMap();
+					informationAboutRoomMap.put("Room name", splitRoomName(inboxPageElements.getElementRoomTitle(number).getText()))
+					informationAboutRoomMap.put("Meeting time", inboxPageElements.getElementMeetingTime(number).getText())
+					informationAboutRoomMap.put("Response", getResponse(inboxPageElements.getElementRoomResponse(number).getText()))
+					informationAboutOneMeetingList.add(informationAboutRoomMap)
+				}
+			}
+
+			private String splitRoomName(String roomName){
+				return roomName.split('has')[0].trim()
+			}
+
+			private String getResponse(String response){
+				//formatting response to readable view
+				if (response.toString().contains("declined")){
+					return "Declined"
+				} else {
+					return "Accepted"
+				}
+			}
+
+			private String getDate(String fullDate){
+				//formatting date to only 'days' view
+				String[] splitDate=fullDate.split(" ")
+				return splitDate[0]+" "+splitDate[1]
+			}
+
+			private String getTime(String fullDate){
+				String[] splitDate=fullDate.split(" ")
+				String time = splitDate[2]+" "+splitDate[3]+" "+splitDate[4]
+				return time;
+			}
+		}
+
+		public class InboxPageElements {
+			private def utils;
+			private def logger;
+			public InboxPageElements(def utils,def log) {
+				this.utils=utils;
+				this.logger=log;
+			}
+
+			public InboxPageElements() {
+			}
+
+			public List<WebElement> getRoomsFromOneMeeting(){
+				logger.info("METHOD: waiting appearance rooms after opening message")
+				utils.waitNumberOfElementsToBeMoreThan(By.xpath("//div[@aria-label='Conversation']/div[1]/div"),1)
+				logger.info("METHOD: waiting appearance rooms after opening message - FINISHED SUCCESSFUL")
+				return $$(byXpath("//div[@aria-label='Conversation']/div[1]/div"))
+			}
+
+			public List<WebElement> getUnreadMessagesAboutRequsts(int number){
+				logger.info("METHOD: waiting appearance messages about booking rooms: "+ number.toString()+" meetings")
+				utils.waitNumberOfElementsToBeMoreThan(By.xpath("//div[./div/div/span/span[contains(text(),'Room - Minsk, K3V, Forest')] and ./div[@class='_lvv_L ms-font-s ms-fwt-sb ms-fcl-tp']]"),(number-1))
+				logger.info("METHOD: waiting appearance messages about booking rooms - FINISHED SUCCESSFUL")
+				return $$(byXpath("//div[./div/div/span/span[contains(text(),'Room - Minsk, K3V, Forest')] and ./div[@class='_lvv_L ms-font-s ms-fwt-sb ms-fcl-tp']]"))
+			}
+
+			public WebElement getCurrentRoom(int number){
+				return utils.waitElementToBeClickable(byXpath("//div[@aria-label='Conversation']/div[1]/div[${number}]"))
+			}
+
+			public WebElement getElementRoomTitle(int number){
+				return utils.waitVisibilityOfElementLocated(By.xpath("//div[@aria-label='Conversation']/div[1]/div[${number}]//div[@class='_cmm_21']/span[2]"))
+			}
+
+			public WebElement getElementMeetingTime(int number){
+				return utils.waitElementToBeClickable(By.xpath("//div[@aria-label='Conversation']/div[1]/div[${number}]//div[@class='meeting-info']//div[@class='_cmm_A ms-fwt-r ms-font-color-neutralPrimary']/span"))
+			}
+
+			public WebElement getElementRoomResponse(int number){
+				return utils.waitElementToBeClickable(By.xpath("//div[@aria-label='Conversation']/div[1]/div[${number}]//div[@role='document']//font/b"))
+			}
+
+			public WebElement getButtonMoreActions(){
+				return utils.waitElementToBeClickable(byXpath("//button[@aria-label='More' and @title='More actions']"))
+			}
+
+			public WebElement getButtonMarkAsRead(){
+				return utils.waitElementToBeClickable(byXpath("//button[contains(@aria-label,'Mark as read') and @role='menuitem']"))
+			}
+		}
+
+		public class BookedUnbookedMeetings{
+
+			private def logger;
+			private int flagAccepted;
+			private int flagDeclined;
+			private List addToCCList;
+			private List unbookedMeetingList;
+
+			public BookedUnbookedMeetings(def log){
+				this.logger=log;
+				addToCCList=new ArrayList();
+				unbookedMeetingList= new ArrayList();
+			}
+
+			public BookedUnbookedMeetings(){
+			}
+
+			public void fillListBookUnbook(List information){
+				logger.info("METHOD: fill list of booked meetings and unbooked meetings")
+
+				for(hashMap in information){
+					flagAccepted=0;
+					flagDeclined=0;
+					//checking accepted and declined meetings
+					for (String value : hashMap.values()) {
+						if (value.equalsIgnoreCase("Accepted")){
+							flagAccepted++;
+						}else if(value.equalsIgnoreCase("Declined")){
+							flagDeclined++;
+						}
+					}
+					//checking flags
+					//if at least one room declined = meeting declined
+					String dateAndTime = hashMap.get("Date") + ";" + hashMap.get("Time");
+					if(flagAccepted>0 && flagDeclined==0){
+						addToCCList.add(dateAndTime)
+					} else if (flagAccepted>=0 && flagDeclined>0){
+						unbookedMeetingList.add(dateAndTime)
+					}
+				}
+				logger.info("METHOD: fill list of booked meetings and unbooked meetings - FINISHED SUCCESFULL")
+			}
+
+			public List getAddToCCList() {
+				logger.info("List of 'add to CC': "+ addToCCList.toString())
+				return addToCCList;
+			}
+			public List getUnbookedMeetingList() {
+				logger.info("List of 'unbooked meetings': "+ unbookedMeetingList.toString())
+				return unbookedMeetingList;
+			}
+		}
+
+		sys.defineVariable("inbox_page_actions", new InboxPageActions());
+	]]></script>
+
+	<export include-original-data="false"></export>
+
+</config>

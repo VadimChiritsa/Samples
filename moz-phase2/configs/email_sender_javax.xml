@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://web-harvest.sourceforge.net/schema/1.0/config"
+	scriptlang="groovy">
+
+	<script><![CDATA[
+		import javax.mail.*;
+		import javax.mail.internet.InternetAddress;
+		import javax.mail.internet.MimeBodyPart;
+		import javax.mail.internet.MimeMessage;
+		import javax.mail.internet.MimeMultipart;
+		import java.io.IOException;
+		import java.util.Properties;
+		
+		public class SenderJavax {
+			
+			private SenderBuilder senderBuilder;
+			
+			private SenderJavax(SenderBuilder senderBuilder){
+				
+				this.senderBuilder = senderBuilder;
+			}
+			
+			public SenderJavax perform()
+			{
+				Transport.send(senderBuilder.getMessage());
+				return this;
+			}
+
+			public static class SenderBuilder{
+
+				private Message message;
+				private Multipart multipart;
+				private def log;
+				
+				private SenderBuilder(){}
+				
+				public Message getMessage() {
+					return message;
+				}
+				
+				public SenderBuilder getInstance(String emailFrom, String emailTo, String password, def log){
+					
+					this.log = log;
+					Session session = authontification(emailFrom, password);
+					message = new MimeMessage(session);
+					message.setFrom(new InternetAddress(emailFrom));
+					message.setRecipient(MimeMessage.RecipientType.TO, new InternetAddress(emailTo));
+					multipart = new MimeMultipart();
+
+					try{
+
+						message.setFrom(new InternetAddress(emailFrom));
+					} catch(Exception e) {
+						log.error(e.printStackTrace());
+					}
+					return this;
+				}
+
+				private Session authontification(String login, String password){
+
+
+				Properties props = new Properties();
+				props.put("mail.smtp.auth", "true");
+				props.put("mail.smtp.starttls.enable", "true");
+				props.put("mail.smtp.host", "smtp-mail.outlook.com");
+				props.put("mail.smtp.port", "587");
+
+				Session session = Session.getInstance(props, new javax.mail.Authenticator() {
+							protected PasswordAuthentication getPasswordAuthentication() {
+								return new PasswordAuthentication(login, password);
+							}
+						});
+				return session;
+			}
+			
+				public SenderBuilder setCC(String emailCC) {
+					try{
+						message.setRecipient(MimeMessage.RecipientType.CC, new InternetAddress(emailCC));
+					} catch(Exception e) {
+
+						log.error(e.printStackTrace());
+					}
+					return this;
+				}
+
+				public SenderBuilder setSubject(String subject) {
+
+					try{
+						message.setSubject(subject);
+					}catch(Exception e) {
+
+						log.error(e.printStackTrace());
+					}
+
+					return this;
+				}
+
+				public SenderBuilder setAttachedFile(String pathFile){
+
+					try {
+						MimeBodyPart messageBodyPart = new MimeBodyPart();
+						messageBodyPart.attachFile(pathFile);
+						multipart.addBodyPart(messageBodyPart);
+					} catch (Exception e) {
+						log.error(e.printStackTrace());
+					}
+					return this;
+				}
+
+				public SenderBuilder setBody(String text){
+
+					try {
+						MimeBodyPart messageBodyPart = new MimeBodyPart();
+						messageBodyPart.setText(text);
+						multipart.addBodyPart(messageBodyPart);
+					} catch (Exception e) {
+						log.error(e.printStackTrace());
+					}
+
+					return this;
+				}
+
+				public SenderBuilder setBody(String text, String nameAttachedFile){
+
+					try {
+						MimeBodyPart messageBodyPart = new MimeBodyPart();
+						messageBodyPart.setFileName(nameAttachedFile);
+						messageBodyPart.setText(text);
+						multipart.addBodyPart(messageBodyPart);
+					} catch (Exception e) {
+						log.error(e.printStackTrace());
+					}
+
+					return this;
+				}
+				
+				public SenderJavax build() {
+					SenderJavax senderJavax = new SenderJavax(this);
+					boolean check = false;
+					for(int i=0; i< multipart.getCount(); i++) {
+
+						MimeBodyPart bodyPart = (MimeBodyPart)multipart.getBodyPart(i);
+						if(bodyPart.getDataHandler().getContentType().contains("text/plain"))
+						{
+						
+							check = true;
+							break;
+						}	
+					}
+					
+					 if(!check)
+					{
+						throw new Exception("Email must have body with information about end of BP");
+					} 
+					message.setContent(multipart);
+					
+					return senderJavax;
+				}
+			}
+		}
+		
+					
+		sys.defineVariable("emailSenderObject", new SenderJavax.SenderBuilder());					
+	]]></script>
+
+	<export include-original-data="true"></export>
+
+</config>

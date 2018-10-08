@@ -1,0 +1,295 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://web-harvest.sourceforge.net/schema/1.0/config"
+	scriptlang="groovy">
+
+	<script><![CDATA[
+		import java.util.Date;
+		import java.text.SimpleDateFormat;
+		public class StopperClass {
+			public static final String ATTEMPTS_QTY_COLUMN = "attempts_qty";
+			public static final String MAX_ATTEMPTS_QTY_COLUMN = "max_attempts_qty";
+			public static final String LAST_ATTEMPT_TIME_STAMP_COLUMN = "last_attempt_was";
+			public static final String LAST_SUCCESSFUL_ATTEMPT_TIME_STAMP_COLUMN = "last_successful_attempt_was";
+			public static final String CACHE_LIFE_CYCLE_COLUMN = "cache_life_cycle";
+			public static final String BOT_TITLE_COLUMN = "bot_title";
+			public static final String ERROR_MESSAGE_COLUMN = "error_message";
+			private static final String INITIAL_SUCCESSFUL_DATE_AND_TIME = "Jan/01/1970 01:00:00 AM";
+			private final int INITIAL_QTY=1;
+			private int qty;
+			private int maxQty;
+			private String lastUsed;
+			private String lastSuccessfulUsed;
+			private long maxDuration;
+			private String botTitle;
+			private String errorMessage;
+			private logger;
+			public StopperClass () {
+			}
+
+			public static void main(String[] args) {
+			}
+
+			public void setBotParameters(int maxAttemptsQty, long cacheLifeCycle, String botTitle, def log){
+				this.logger = log;
+				this.botTitle = botTitle;
+				this.maxQty = maxAttemptsQty;
+				this.maxDuration = cacheLifeCycle*1000; //cacheLifeCycle should be in ms
+			}
+
+			public String getBotTitle() {
+				return botTitle;
+			}
+
+			public void fillLastDataFromDatastore (def row) {
+				qty = Integer.parseInt(row.get(ATTEMPTS_QTY_COLUMN).toString());
+				lastUsed = row.get(LAST_ATTEMPT_TIME_STAMP_COLUMN).toString();
+			}
+
+			public void fillLastSuccessfulDataFromDatastore (def row) {
+				lastSuccessfulUsed = row.get(LAST_SUCCESSFUL_ATTEMPT_TIME_STAMP_COLUMN).toString();
+			}
+
+			public void addAttemtpsQty() {
+				qty++;
+			}
+
+			public boolean checkAttemtpsQty() {
+				if (qty>=maxQty) {
+					return false
+				} else {
+					return true;
+				}
+			}
+
+			public int getQty() {
+				return qty;
+			}
+
+			public int getMaxQty() {
+				return maxQty;
+			}
+
+			public int getMaxDuration() {
+				return maxDuration;
+			}
+
+			//This method verifies cache, if cache is too old, code will delete it
+			public boolean isDeleteInitialData() {
+				SimpleDateFormat sdf = new SimpleDateFormat ("MMM/dd/yyyy hh:mm:ss a");
+				Date lastDate = sdf.parse(lastUsed);
+				Calendar calendar = new GregorianCalendar();
+				calendar.setTime(lastDate)
+				long calendarMillis =calendar.getTimeInMillis();
+				if ((calendarMillis+maxDuration)<getCurrentTime()) {
+					return true;
+				}
+				else {
+					return false;
+				}
+			}
+
+			public void setFirstStartValues() {
+				qty=INITIAL_QTY;
+				lastUsed=getCurrentTime();
+			}
+
+			public void resetValues() {
+				qty=0;
+				lastUsed=INITIAL_SUCCESSFUL_DATE_AND_TIME;
+			}
+
+			public long getCurrentTime() {
+				return System.currentTimeMillis();
+			}
+
+			public void setErrorMessage(String errorMessage) {
+				this.errorMessage = errorMessage;
+			}
+
+			public String getErrorMessage() {
+				return errorMessage
+			}
+
+			public String getTimeStamp() {
+				Date date = new Date();
+				SimpleDateFormat sdf = new SimpleDateFormat ("MMM/dd/yyyy hh:mm:ss a");
+				Calendar calendar = new GregorianCalendar();
+				calendar.setTime(date);
+				return sdf.format(calendar.getTime());
+			}
+
+			public boolean isCacheValid() {
+				SimpleDateFormat sdf = new SimpleDateFormat ("MMM/dd/yyyy hh:mm:ss a");
+				Date lasSuccessfultDate;
+				try{
+					lasSuccessfultDate = sdf.parse(lastSuccessfulUsed);
+				} catch (NullPointerException e) {
+					lastSuccessfulUsed = INITIAL_SUCCESSFUL_DATE_AND_TIME;
+					lasSuccessfultDate = sdf.parse(lastSuccessfulUsed);
+				}
+				Calendar calendar = new GregorianCalendar();
+				calendar.setTime(lasSuccessfultDate);
+				long calendarMillis =calendar.getTimeInMillis();
+				if ((calendarMillis+maxDuration)>getCurrentTime()) {
+					return true;
+				}
+				else {
+					return false;
+				}
+			}
+
+			public void setFirstSuccessfulValues() {
+				lastSuccessfulUsed = INITIAL_SUCCESSFUL_DATE_AND_TIME;
+			}
+		}
+		stopperClass = new StopperClass();
+		sys.defineVariable("stopperObject", stopperClass);
+	]]></script>
+
+	<function name="initialize_cache_and_attempts_qty">
+
+		<script><![CDATA[
+			//next lines added because sometimes new-dev instance retrieves a list with size == 7. And object of the Class StopperClass may be at any place!
+			stopperClass = null;
+			List objectList = stopperClassPassedObject.getWrappedObject();
+			for (int i=0; i<objectList.size(); i++) {
+				String classItem = objectList.get(i).getClass().toString();
+				String targetClassItem = "class org.webharvest.runtime.variables.NodeVariable";
+				if (classItem.equals(targetClassItem)) {
+					stopperClass=objectList.get(i).getWrappedObject();
+					break;
+				}
+			}
+			//end of the added lines
+			//stopperClass=stopperClassPassedObject.getWrappedObject().get(0).getWrappedObject();   //case for old-dev instance
+			botTitle = stopperClass.getBotTitle(); //botTitle will be used as title for DS, each bot will have his own DS with attempts data
+			botTitleSuccessful = stopperClass.getBotTitle() + "_successful_execution"; //botTitleSuccessful will be used as title for DS, each bot will have his own DS with successful attempt data
+		]]></script>
+
+		<!-- create DS with successful attempt data for each bot if DS not exists -->
+		<create-datastore name="${botTitleSuccessful}">
+			<datastore-column name="bot_title" />
+			<datastore-column name="last_successful_attempt_was" />
+		</create-datastore>
+
+		<var-def name="successfulData">
+			<datastore name="${botTitleSuccessful}">
+				select * from @this;
+			</datastore>
+		</var-def>
+
+		<script><![CDATA[
+			if (successfulData.size()==0) {
+				stopperClass.setFirstSuccessfulValues(); //set previus succesful attempt to Jan/01/1970 01:00:00 AM
+			} else {
+				stopperClass.fillLastSuccessfulDataFromDatastore(successfulData.get(successfulData.size()-1));
+			}
+		]]></script>
+
+		<!-- create DS with attempts qty data for each bot if DS not exists -->
+		<create-datastore name="${botTitle}">
+			<datastore-column name="bot_title" />
+			<datastore-column name="attempts_qty" />
+			<datastore-column name="last_attempt_was" />
+			<datastore-column name="max_attempts_qty" />
+			<datastore-column name="cache_life_cycle" />
+			<datastore-column name="error_message" />
+		</create-datastore>
+
+		<var-def name="botData">
+			<datastore name="${botTitle}">
+				select * from @this;
+			</datastore>
+		</var-def>
+
+		<script><![CDATA[
+			isDelete=false; //flag valid cache
+			if (botData.size()>0) {
+				stopperClass.fillLastDataFromDatastore(botData.get(botData.size()-1));
+				isDelete = stopperClass.isDeleteInitialData();
+			}
+		]]></script>
+
+		<!--delete too old records from previous attempts -->
+		<case>
+			<if condition="${isDelete}">
+				<datastore name="${botTitle}">
+					delete from @this;
+				</datastore>
+				<script><![CDATA[
+					stopperClass.resetValues();
+				]]></script>
+			</if>
+		</case>
+
+	</function>
+
+	<function name="increment_attempts_qty">
+		<script><![CDATA[
+			stopperClass=stopperClassPassedObject.getWrappedObject().get(0).getWrappedObject();
+			botTitle = stopperClass.getBotTitle();
+			botTitleSuccessful = botTitle + "_successful_execution";
+		]]></script>
+
+		<var-def name="botData">
+			<datastore name="${botTitle}">
+				select * from @this;
+			</datastore>
+		</var-def>
+
+		<script><![CDATA[
+			if (botData.size()==0) {
+				stopperClass.setFirstStartValues(); //first start or data with attempts was deleted
+			} else {
+				stopperClass.fillLastDataFromDatastore(botData.get(botData.size()-1)); //initialize object stopperClass by data from DS
+			}
+			if (botData.size()>0) {
+				//if DS is empty we have already initialized first values (stopperClass.setFirstStartValues());
+				stopperClass.addAttemtpsQty();
+			}
+			Map insertedParamMap = new HashMap();
+			insertedParamMap.put(stopperClass.BOT_TITLE_COLUMN, botTitle.toString());
+			insertedParamMap.put(stopperClass.ATTEMPTS_QTY_COLUMN, stopperClass.getQty().toString());
+			insertedParamMap.put(stopperClass.LAST_ATTEMPT_TIME_STAMP_COLUMN, stopperClass.getTimeStamp());
+			insertedParamMap.put(stopperClass.MAX_ATTEMPTS_QTY_COLUMN, stopperClass.getMaxQty().toString());
+			insertedParamMap.put(stopperClass.CACHE_LIFE_CYCLE_COLUMN, ((stopperClass.getMaxDuration())/1000).toString());
+			insertedParamMap.put(stopperClass.ERROR_MESSAGE_COLUMN, stopperClass.getErrorMessage());
+			jsonData = new com.google.gson.Gson().toJson(insertedParamMap);
+			log.info("last added row" + jsonData);
+			sys.defineVariable("jsonData", jsonData);
+			//}
+		]]></script>
+
+		<insert-datastore datastore-name="${botTitle}"
+			json-value-map="${jsonData}">
+		</insert-datastore>
+
+	</function>
+
+	<function name="store_last_good_attempt">
+		<script><![CDATA[
+			stopperClass=stopperClassPassedObject.getWrappedObject().get(0).getWrappedObject();
+			botTitle = stopperClass.getBotTitle()+"_successful_execution";
+		]]></script>
+
+		<datastore name="${botTitle}">
+			delete from @this;
+		</datastore>
+
+		<script><![CDATA[
+			stopperClass.setFirstStartValues();
+			Map map = new HashMap();
+			map.put(stopperClass.BOT_TITLE_COLUMN, botTitle.toString());
+			map.put(stopperClass.LAST_SUCCESSFUL_ATTEMPT_TIME_STAMP_COLUMN, stopperClass.getTimeStamp());
+			jsonInittialData = new com.google.gson.Gson().toJson(map);
+			log.info("last successful attempt" + jsonInittialData)
+		]]></script>
+
+		<insert-datastore datastore-name="${botTitle}"
+			json-value-map="${jsonInittialData}">
+		</insert-datastore>
+
+	</function>
+
+	<export include-original-data="false"></export>
+</config>

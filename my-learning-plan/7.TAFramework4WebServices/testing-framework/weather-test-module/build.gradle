@@ -1,0 +1,23 @@
+version 'unspecified'
+
+apply plugin: 'groovy'
+
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+    flatDir {
+        dirs 'src/test/resources'
+    }
+}
+
+dependencies {
+    testCompile("junit:junit:4.11")
+    testCompile("org.spockframework:spock-spring:0.7-groovy-2.0")
+    testCompile("com.athaydes:spock-reports:1.1")
+    testCompile project(":core")
+
+    compile 'org.codehaus.groovy:groovy-all:2.3.11'
+    testCompile project(":core")
+    compile name: "htmlcleaner-2.19"
+}

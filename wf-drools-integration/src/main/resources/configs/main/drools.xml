@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://web-harvest.sourceforge.net/schema/1.0/config"
+	scriptlang="groovy">
+
+
+	<script><![CDATA[
+		import com.epam.drools.*
+		import com.epam.kie.server.drools.*;
+
+		User user = new User();
+		user.setName("roman");
+
+		User user2 = new User();
+		user2.setName("vitalik")
+
+		List<User> list = new ArrayList<User>();
+		list.add(user);
+		list.add(user2);
+
+		log.info("Start initiliaze server")
+		DroolsServicesImpl decisionServerTest2 = new DroolsServicesImpl();
+		decisionServerTest2.initialize();
+		log.info("Stop initiliaze server")
+
+		 for (User users: decisionServerTest2.executeCommands(list)) {
+            log.info("User "+users.getName()+ " has status "+ users.getStatus().toString()+".");
+        }
+		]]></script>
+
+	<export include-original-data="true"></export>
+
+</config>

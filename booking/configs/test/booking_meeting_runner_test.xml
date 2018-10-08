@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://web-harvest.sourceforge.net/schema/1.0/config"
+	scriptlang="groovy">
+
+	<var-def name="test">
+		<template>${test}</template>
+	</var-def>
+	<var-def name="flag_well_json">
+		<template>${flag_well_json}</template>
+	</var-def>
+	<try>
+		<body>
+			<var-def name="amount_meetings">
+				<template>${amount_meetings}</template>
+			</var-def>
+		</body>
+		<catch>
+		</catch>
+	</try>
+
+	<script><![CDATA[
+		switch (test.toString()) {
+			case {it.equals("1")}:
+				testSuccessfulBookingTwoMeetings()
+				break;
+			case {it.equals("2")}:
+				testSuccessfulBookingOneMeeting()
+				break;
+			case {it.equals("3")}:
+				testUnsuccessfulBooking()
+				break;
+			default :
+				log.info("Bad number of test!")
+		}
+
+		public void testSuccessfulBookingTwoMeetings(){
+			assert flag_well_json.toString() == "1" : "flag_well_json in the test: ${test} should be 1";
+			assert amount_meetings.toString() == "2" : "amount_meetings in the test: ${test} should be 2";
+			log.info("Test: ${test}. FINISHED SUCCESFUL.");
+		}
+
+		public void testSuccessfulBookingOneMeeting(){
+			assert flag_well_json.toString() == "1" : "flag_well_json in the test: ${test} should be 1";
+			assert amount_meetings.toString() == "1" : "amount_meetings in the test: ${test} should be 1";
+			log.info("Test: ${test}. FINISHED SUCCESFUL.");
+		}
+
+		public void testUnsuccessfulBooking(){
+			assert flag_well_json.toString() == "0" : "flag_well_json in the test: ${test} should be 0";
+			log.info("Test: ${test}. FINISHED SUCCESFUL.");
+		}
+	]]></script>
+
+	<export include-original-data="true">
+	</export>
+
+</config>

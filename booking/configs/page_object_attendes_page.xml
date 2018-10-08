@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://web-harvest.sourceforge.net/schema/1.0/config"
+	scriptlang="groovy">
+
+	<script><![CDATA[
+		public class AttendesPageActions {
+			private ArrayList<String> emails;
+			private ArrayList<String> rooms;
+			private WebDriver driver;
+			private def logger;
+			private def utils;
+			private AttendesPageElements attendesPageElements;
+			private def credentials;
+
+
+			public AttendesPageActions() {
+			}
+			public static void main(String[] args) {
+			}
+
+		public setInstance(WebDriver driver, def log, def utils, def credentials) {
+				this.driver = driver;
+				this.logger = log;
+				this.utils = utils;
+				attendesPageElements = new AttendesPageElements(this.utils);
+				this.credentials = credentials;
+			}
+
+			public void fillAttendeeFileld() {
+				logger.info ("STEP: start to fill list of required rooms(persons)");
+				WebElement fieldRequiredAttendes = attendesPageElements.getFieldRequiredAttendes();
+				fieldRequiredAttendes.click();
+				fillAttandees(emails, fieldRequiredAttendes);
+				attendesPageElements.getButtonSave().click();
+				logger.info ("STEP: start to fill list of required rooms(persons) - FINISHED SUCCESSFUL");
+			}
+
+			public void setEmailsAndRooms (ArrayList emails, ArrayList rooms) {
+				this.emails = emails;
+				this.rooms = rooms;
+			}
+
+
+			private void fillAttandees(ArrayList emails, WebElement field) {
+				for (email in emails) {
+					field.sendKeys(email);
+					sleep(2000); //sleep has to be there because we need time to get recognize email by server (sendKeys typing the text and server tries to give you suggestions)
+					pressEnter();
+					pressEnter();
+				}
+			}
+
+			public ArrayList getRooms() {
+				return rooms;
+			}
+
+			public ArrayList getEmails() {
+				return emails;
+			}
+		}
+
+		public class AttendesPageElements {
+			private def utils;
+			public AttendesPageElements () {
+			}
+
+			public AttendesPageElements (def utils) {
+				this.utils = utils;
+			}
+
+			public WebElement getFieldRequiredAttendes () {
+				return utils.hardWait(By.xpath("//*[@aria-label='To'][not(@disabled)]"));
+			}
+
+			public WebElement getButtonSave() {
+				return $(byXpath("//button[@title='OK']"));
+			}
+		}
+
+		sys.defineVariable("attendes_page_actions", new AttendesPageActions());
+	]]></script>
+
+
+	<export include-original-data="false"></export>
+
+</config>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://web-harvest.sourceforge.net/schema/1.0/config"
+	charset="UTF-8" scriptlang="groovy">
+
+  <script><![CDATA[
+		log.info("STOP PROCESS BOOKING, INVALID INPUT DATA");
+	]]></script>
+	<export include-original-data="true">
+	</export>
+</config>

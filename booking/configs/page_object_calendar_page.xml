@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://web-harvest.sourceforge.net/schema/1.0/config"
+	scriptlang="groovy">
+
+	<script><![CDATA[
+		public class CalendarPageActions {
+			private WebDriver driver;
+			private def logger;
+			private def utils;
+			private CalendarPageElements  calendarPageElements;
+			private def credentials;
+
+			public CalendarPageActions() {
+			}
+			public static void main(String[] args) {
+			}
+
+			public setInstance(WebDriver driver, def log, def utils, def credentials) {
+				this.driver = driver;
+				this.logger = log;
+				this.utils = utils;
+				calendarPageElements = new CalendarPageElements (utils);
+				this.credentials = credentials;
+			}
+
+			public void addEvent() {
+				logger.info ("STEP: start to create new calendar event");
+				calendarPageElements.getButtonAddNewEvent().click();
+				calendarPageElements.getButtoNewCalendarEvent().click();
+				logger.info ("STEP: start to create new calendar event - FINISHED SUCCESSFUL");
+			}
+
+			public void clickOnMonth(String month){
+				logger.info("STEP: choose particular month")
+				calendarPageElements.getButtonChooseMonth().click();
+				calendarPageElements.getButtonParticularMonth(month).click();
+				logger.info("STEP: choose particular month - FINISHED SUCCESSFUL")
+			}
+
+			
+			public void clickOnDate(String date, String month){
+				logger.info("STEP: choose particular date")
+				calendarPageElements.getButtonParticularDay(date, month).click();
+				logger.info("STEP: choose particular date - FINISHED SUCCESSFUL")
+			}
+
+			//find date from datastore and open it
+			public void  getDate(String searchingData, Actions keyAction) {
+				logger.info ("STEP: clik on neccessary data to open all day events");
+				int count = 0;
+				for (day in calendarPageElements.getDaysButtonOfMonthList()) {
+					if (day.getText() == searchingData || !isDedicatedOtherMonth(searchingData, index)) {
+						keyAction.moveToElement(day).click().build().perform();
+						count++;
+					}
+				}
+				logger.info ("STEP: clik on neccessary data to open all day events - FINISHED SUCCESSFUL");
+			}
+
+			//switch to month view
+			public void switchToMonthView(Actions keyAction) {
+				keyAction.keyDown(Keys.CONTROL).keyDown(Keys.SHIFT).keyDown(Keys.ALT).sendKeys("4").keyUp(Keys.CONTROL).keyUp(Keys.SHIFT).keyUp(Keys.ALT).perform();
+			}
+
+			//returns true if the day is the end of previous month or start of future, otherwise - false
+			public boolean isDedicatedOtherMonth (String searchingData, int index) {
+				return ((Integer.parseInt(searchingData) > 25) && (index <= 5 )) || ((Integer.parseInt(searchingData) <= 6) && (index >= 23))
+			}
+
+		}
+		
+		public class CalendarPageElements {
+			private def utils;
+
+			public CalendarPageElements(def utils) {
+				this.utils = utils;
+			}
+
+			public CalendarPageElements() {
+			}
+
+			//returns all days of month
+			public List <WebElement> getButtonDaysOfMonthList() {
+				return $$(By.xpath("//span[@autoid = '_cb_o']"));
+			}
+
+			public WebElement getButtonAddNewEvent() {
+				return utils.hardWait(By.xpath("//*[@title='Create other items button. To access options press spacebar']"));
+			}
+
+			public WebElement getButtoNewCalendarEvent() {
+				return utils.hardWait(By.xpath("//*[text()='Calendar event']"));
+			}
+
+			public WebElement getButtonChooseMonth() {
+				return utils.waitElementToBeClickable(By.xpath("//div[@class='_dx_f']/button[2]"));
+			}
+
+			public WebElement getButtonParticularMonth(String month) {
+				return utils.waitElementToBeClickable(By.xpath("//span[contains(@aria-label,'${month}')]"));
+			}
+			
+			public WebElement getButtonParticularDay(String date, String month) {
+				return utils.waitElementToBeClickable(By.xpath("//abbr[contains(@aria-label,'${date}') and contains(@aria-label,'${month}')]"));
+			}
+		}
+
+		sys.defineVariable("calendar_page_actions", new CalendarPageActions());
+	]]></script>
+
+	<export include-original-data="false"></export>
+
+</config>

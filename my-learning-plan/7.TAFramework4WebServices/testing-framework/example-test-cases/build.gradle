@@ -1,0 +1,7 @@
+dependencies{
+    testCompile("junit:junit:4.11")
+    testCompile("xmlunit:xmlunit:1.5")
+    testCompile("org.spockframework:spock-spring:0.7-groovy-2.0")
+    testCompile("com.athaydes:spock-reports:1.1")
+    testCompile project(":core")
+}

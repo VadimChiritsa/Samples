@@ -1,0 +1,351 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://web-harvest.sourceforge.net/schema/1.0/config"
+	scriptlang="groovy">
+
+	<script><![CDATA[
+		import org.apache.poi.ss.usermodel.Cell;
+		import org.apache.poi.ss.usermodel.Row;
+		import org.apache.poi.ss.util.CellReference;
+		import org.apache.poi.xssf.usermodel.XSSFSheet;
+		import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+		import org.joda.time.DateTime;
+		import org.joda.time.format.DateTimeFormat;
+		import org.joda.time.format.DateTimeFormatter;
+
+		import java.util.ArrayList;
+		import java.util.Iterator;
+		import java.util.List;
+
+		public class ExcelRead {
+
+			private File file;
+			private ByteArrayInputStream fileStream;
+			private XSSFWorkbook myExcelBook;
+			private DateTimeFormatter fmtNE = DateTimeFormat.forPattern("MMMM, YYYY");
+
+			public ExcelRead() {
+			}
+
+			public void setFile(String filePath) {
+				this.file = new File(filePath);
+			}
+
+			public void setFile(ByteArrayInputStream fileStream) {
+				this.fileStream = fileStream;
+			}
+
+			public void setFile(byte[] fileBytes) {
+				this.fileStream = new ByteArrayInputStream(fileBytes);
+			}
+
+			public void readExcelBook() throws Exception {
+				if (file != null) {
+					try {
+						this.myExcelBook = new XSSFWorkbook(new FileInputStream(file));
+					} catch (NullPointerException | IOException e) {
+						throw new Exception("Problem with reading the file. Check it");
+					}
+				} else if (fileStream != null) {
+					try {
+						this.myExcelBook = new XSSFWorkbook(fileStream);
+					} catch (NullPointerException | IOException e) {
+						throw new Exception("Problem with reading the file. Check it");
+					}
+				} else {
+					throw new Exception("Problem with reading the file. Check it. \n No data For Reading Excel.");
+				}
+			}
+
+			public void writeToTheSameFile() {
+				try {
+					FileOutputStream os = new FileOutputStream(file);
+					myExcelBook.write(os);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+
+			public void writeToTheFile(String filePath) {
+				try {
+					FileOutputStream os = new FileOutputStream(new File(filePath));
+					myExcelBook.write(os);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+
+			public void insertNewSheetBefore(XSSFSheet workSheet, XSSFSheet beforeSheet) {
+				myExcelBook.setSheetOrder(workSheet.getSheetName(), myExcelBook.getSheetIndex(beforeSheet));
+			}
+
+			public XSSFWorkbook getMyExcelBook() {
+				return myExcelBook;
+			}
+
+			public void cloneSheetStyle(XSSFSheet sheetFrom, XSSFSheet sheetTo) {
+				Iterator rowFromIterator = sheetFrom.iterator();
+				Iterator cellFromIterator;
+				Row currentRow;
+				Cell currentCell;
+				Cell createdCell;
+				while (rowFromIterator.hasNext()) {
+					currentRow = (Row) rowFromIterator.next();
+					cellFromIterator = currentRow.cellIterator();
+					Row createdRow = returnNewRowIfNull(sheetTo, currentRow.getRowNum());
+					while (cellFromIterator.hasNext()) {
+						currentCell = (Cell) cellFromIterator.next();
+						createdCell = returnNewCellIfNull(createdRow, currentCell.getColumnIndex());
+						styleCellCopy(currentCell, createdCell);
+					}
+				}
+			}
+
+			public void cloneSheetFull(XSSFSheet sheetFrom, XSSFSheet sheetTo) {
+				Iterator rowFromIterator = sheetFrom.iterator();
+				Iterator cellFromIterator;
+				Row currentRow;
+				Cell currentCell;
+				Cell createdCell;
+				while (rowFromIterator.hasNext()) {
+					currentRow = (Row) rowFromIterator.next();
+					cellFromIterator = currentRow.cellIterator();
+					Row createdRow = returnNewRowIfNull(sheetTo, currentRow.getRowNum());
+					while (cellFromIterator.hasNext()) {
+						currentCell = (Cell) cellFromIterator.next();
+						createdCell = returnNewCellIfNull(createdRow, currentCell.getColumnIndex());
+						fullCellCopy(currentCell, createdCell);
+					}
+				}
+			}
+
+			public void copyRowFull(XSSFSheet sheetFrom, XSSFSheet sheetTo, int rowNumber) {
+				Row currentRow = sheetFrom.getRow(rowNumber);
+				Iterator cellFromIterator = currentRow.cellIterator();
+				Row createdRow = returnNewRowIfNull(sheetTo, currentRow.getRowNum());
+				Cell createdCell;
+				Cell currentCell;
+				while (cellFromIterator.hasNext()) {
+					currentCell = (Cell) cellFromIterator.next();
+					createdCell = returnNewCellIfNull(createdRow, currentCell.getColumnIndex());
+					fullCellCopy(currentCell, createdCell);
+				}
+			}
+
+			public void copyRowStyle(XSSFSheet sheetFrom, XSSFSheet sheetTo, int rowNumber) {
+				Row currentRow = sheetFrom.getRow(rowNumber);
+				Iterator cellFromIterator = currentRow.cellIterator();
+				Row createdRow = returnNewRowIfNull(sheetTo, currentRow.getRowNum());
+				Cell createdCell;
+				Cell currentCell;
+				while (cellFromIterator.hasNext()) {
+					currentCell = (Cell) cellFromIterator.next();
+					createdCell = returnNewCellIfNull(createdRow, currentCell.getColumnIndex());
+					styleCellCopy(currentCell, createdCell);
+				}
+			}
+
+			public void copyColumnFull(XSSFSheet sheetFrom, XSSFSheet sheetTo, int columnIndex) {
+				Iterator rowFromIterator = sheetFrom.iterator();
+				while (rowFromIterator.hasNext()) {
+					Row currentRow = (Row) rowFromIterator.next();
+					Row createdRow = returnNewRowIfNull(sheetTo, currentRow.getRowNum());
+					Cell currentCell = currentRow.getCell(columnIndex);
+					Cell createdCell = returnNewCellIfNull(createdRow, currentCell.getColumnIndex());
+					fullCellCopy(currentCell, createdCell);
+				}
+			}
+
+			public void copyColumnFull(XSSFSheet sheetFrom, XSSFSheet sheetTo, String columnNameIndex) {
+				int columnIndex = CellReference.convertColStringToIndex(columnNameIndex);
+				copyColumnFull(sheetFrom, sheetTo, columnIndex);
+			}
+
+			public void copyColumnStyle(XSSFSheet sheetFrom, XSSFSheet sheetTo, int columnIndex) {
+				Iterator rowFromIterator = sheetFrom.iterator();
+				while (rowFromIterator.hasNext()) {
+					Row currentRow = (Row) rowFromIterator.next();
+					Row createdRow = returnNewRowIfNull(sheetTo, currentRow.getRowNum());
+					Cell currentCell = currentRow.getCell(columnIndex);
+					Cell createdCell = returnNewCellIfNull(createdRow, currentCell.getColumnIndex());
+					styleCellCopy(currentCell, createdCell);
+				}
+			}
+
+			public void copyColumnStyle(XSSFSheet sheetFrom, XSSFSheet sheetTo, String columnNameIndex) {
+				int columnIndex = CellReference.convertColStringToIndex(columnNameIndex);
+				copyColumnStyle(sheetFrom, sheetTo, columnIndex);
+			}
+
+			public List getColumnValues(XSSFSheet workSheet, int headerSize, String columnNameIndex) {
+				List resultList = new ArrayList();
+				int columnIndex = CellReference.convertColStringToIndex(columnNameIndex);
+				int counter = 0;
+				if (workSheet != null) {
+					Iterator rowFromIterator = workSheet.iterator();
+					Row currentRow;
+					while (rowFromIterator.hasNext()) {
+						if (counter < headerSize) {
+							counter++;
+							rowFromIterator.next();
+							continue;
+						}
+						currentRow = (Row) rowFromIterator.next();
+						resultList.add(getValue(currentRow.getCell(columnIndex)));
+					}
+					return resultList;
+				}
+				return resultList;
+			}
+
+			public XSSFSheet createSheet(String nameOfSheet) {
+				DateTime dateTime = new DateTime();
+				if (myExcelBook.getSheet(nameOfSheet) == null) {
+					return myExcelBook.createSheet(dateTime.toString(fmtNE));
+				} else {
+					int index = myExcelBook.getSheetIndex(myExcelBook.getSheet(nameOfSheet));
+					myExcelBook.removeSheetAt(index);
+					return myExcelBook.createSheet(dateTime.toString(fmtNE));
+				}
+			}
+
+			public XSSFSheet createDefaultSheet() {
+				DateTime dateTime = new DateTime();
+				if (myExcelBook.getSheet(dateTime.toString(fmtNE)) == null) {
+					return myExcelBook.createSheet(dateTime.toString(fmtNE));
+				} else {
+					int index = myExcelBook.getSheetIndex(myExcelBook.getSheet(dateTime.toString(fmtNE)));
+					myExcelBook.removeSheetAt(index);
+					return myExcelBook.createSheet(dateTime.toString(fmtNE));
+				}
+			}
+
+			public void insertStringValues(XSSFSheet workSheet, int startIndex, String columnNameIndex, List<?> values) {
+				int columnIndex = CellReference.convertColStringToIndex(columnNameIndex);
+				insertStringValues(workSheet, startIndex, columnIndex, values);
+			}
+
+			public void insertDoubleValues(XSSFSheet workSheet, int startIndex, String columnNameIndex, List<?> values) {
+				int columnIndex = CellReference.convertColStringToIndex(columnNameIndex);
+				insertDoubleValues(workSheet, startIndex, columnIndex, values);
+			}
+
+			private void fullCellCopy(Cell cellFrom, Cell cellTo) {
+				insertNeededValue(cellFrom, cellTo);
+				cellTo.setCellStyle(cellFrom.getCellStyle());
+			}
+
+			public void insertStringValues(XSSFSheet workSheet, int startIndex, int columnIndex, List<?> values) {
+				int counter = startIndex;
+				for (Object cellValue : values) {
+					Row currentRow = returnNewRowIfNull(workSheet, counter);
+					Cell currentCell = returnNewCellIfNull(currentRow, columnIndex);
+					currentCell.setCellValue((String) cellValue);
+					counter++;
+				}
+			}
+
+			public void insertDoubleValues(XSSFSheet workSheet, int startIndex, int columnIndex, List<?> values) {
+				int counter = startIndex;
+				for (Object cellValue : values) {
+					Row currentRow = returnNewRowIfNull(workSheet, counter);
+					Cell currentCell = returnNewCellIfNull(currentRow, columnIndex);
+					try{
+						currentCell.setCellValue((Double.parseDouble(String.valueOf(cellValue))));
+						counter++;
+					}catch(Exception exce){
+						currentCell.setCellValue(String.valueOf(cellValue));
+						counter++;
+					}
+				}
+			}
+
+			private String getValue(Cell cellFrom) {
+				String result = "";
+				switch (cellFrom.getCellType()) {
+					case Cell.CELL_TYPE_BLANK:
+						result = cellFrom.getStringCellValue();
+						break;
+					case Cell.CELL_TYPE_BOOLEAN:
+						result = String.valueOf(cellFrom.getBooleanCellValue());
+						break;
+					case Cell.CELL_TYPE_ERROR:
+						result = String.valueOf(cellFrom.getErrorCellValue());
+						break;
+					case Cell.CELL_TYPE_FORMULA:
+						result = String.valueOf(cellFrom.getCellFormula());
+						break;
+					case Cell.CELL_TYPE_NUMERIC:
+						result = String.valueOf(cellFrom.getNumericCellValue());
+						break;
+					case Cell.CELL_TYPE_STRING:
+						result = String.valueOf(cellFrom.getStringCellValue());
+						break;
+				}
+				return result;
+			}
+
+			private void styleCellCopy(Cell cellFrom, Cell cellTo) {
+				cellTo.setCellStyle(cellFrom.getCellStyle());
+			}
+
+			private void insertNeededValue(Cell cellFrom, Cell cellTo) {
+				switch (cellFrom.getCellType()) {
+					case Cell.CELL_TYPE_BLANK:
+						cellTo.setCellValue(cellFrom.getStringCellValue());
+						break;
+					case Cell.CELL_TYPE_BOOLEAN:
+						cellTo.setCellValue(cellFrom.getBooleanCellValue());
+						break;
+					case Cell.CELL_TYPE_ERROR:
+						cellTo.setCellErrorValue(cellFrom.getErrorCellValue());
+						break;
+					case Cell.CELL_TYPE_FORMULA:
+						cellTo.setCellFormula(cellFrom.getCellFormula());
+						break;
+					case Cell.CELL_TYPE_NUMERIC:
+						cellTo.setCellValue(cellFrom.getNumericCellValue());
+						break;
+					case Cell.CELL_TYPE_STRING:
+						cellTo.setCellValue(cellFrom.getRichStringCellValue());
+						break;
+				}
+			}
+
+			private Row returnNewRowIfNull(XSSFSheet sheet, int rowNum) {
+				if (sheet.getRow(rowNum) == null) {
+					return sheet.createRow(rowNum);
+				} else {
+					return sheet.getRow(rowNum);
+				}
+			}
+
+			private Cell returnNewCellIfNull(Row row, int columnNum) {
+				if (row.getCell(columnNum) == null) {
+					return row.createCell(columnNum);
+				} else {
+					return row.getCell(columnNum);
+				}
+			}
+
+			public byte[] getBytes() throws IOException {
+				ByteArrayOutputStream bos = new ByteArrayOutputStream();
+				this.myExcelBook.write(bos);
+				bos.close();
+				return bos.toByteArray();
+			}
+
+			public XSSFSheet getSheet(String sheetName) {
+				if (myExcelBook.getSheet(sheetName) == null) {
+					throw new NullPointerException("XSSFSheet " + sheetName + " doesn't exist.");
+				} else {
+					return myExcelBook.getSheet(sheetName);
+				}
+			}
+		}
+
+		sys.defineVariable("excel_editor", new ExcelRead());
+	]]></script>
+
+	<export include-original-data="true"></export>
+
+</config>

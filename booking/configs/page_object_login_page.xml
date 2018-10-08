@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://web-harvest.sourceforge.net/schema/1.0/config"
+	scriptlang="groovy">
+
+	<script><![CDATA[
+		public class LoginPageActions {
+			private WebDriver driver;
+			private def logger;
+			private def utils;
+			private def credentials;
+			private LoginPageElements loginPageElements;
+			
+
+			public LoginPageActions() {
+				loginPageElements = new LoginPageElements();
+			}
+
+			public setInstance(WebDriver driver, def log, def utils, def credentials) {
+				this.driver = driver;
+				this.credentials = credentials;
+				this.logger = log;
+				this.utils = utils;
+			}
+
+			public void enterMail() {
+				logger.info ("STEP: Enter email");
+				//open("https://vadim_chiritsa@epam.com:11071998_roadtothedream@login.epam.com/adfs/ls/wia?client-request-id=6bd08715-26e2-4383-a925-fd9eb2868798&wa=wsignin1.0&wtrealm=urn%3afederation%3aMicrosoftOnline&wctx=LoginOptions%3D3%26estsredirect%3d2%26estsrequest%3drQIIAdNiNtQztFIxgAAjXRCpa5CWZqibnApiIYEiIS4B0fYL2Y_Ump1Xqv6dt6mtfcYqRvmMkpKCYit9_fzSkpz8_Gy9_LS0zORUveT8XP388kT9HYyMFxgZVzGZmxmbmZmaGpuZWhgbm1gYWZoa66WaGwJtSk3TNU5LStQ1STG10LU0sEzVNU9OS0xOSTRLTDYxu8XE7-9YWpJhBCLyizKrUj8xcablF-XGF-QXl8xiTnBJLnFyy3dMd3Z0CqryS6kIdjR0Cgg0K0hyKzGKD8uyMAo1cEz3T_d3M_f0yC1w9PQtzzHOLykqK48IKQkrrvL2ywwyd_Mvy8zK9A_ICjdKrCoMzyw2KCq3NKgqK9DN9ljFTFTobGJmA3o5Nz_vFDNbfkFqXmbKI2bxssSUzNz45IzMosyS4kSH1ILEXFDAXGBhfMXCY8BsxcHBJcAgwaDA8IOFcRErMHzfPRNVKOZd5LzzfaPf86nKDKdY9SuCTCNdnCJLckw9y7LKHYMzo4IqnFOcgkINQt1zAnMrQgxD04uDXTxLkpJtza0MJ7AxTmBje8HG-IGNsYOdYRcnoQi6xSViZGBooWtgpmtkqmBoamVoZmVsGgUA0&cbcxt=&username=vadim_chiritsa%40epam.com&mkt=&lc=");
+				open(credentials.WEB_SITE);
+				loginPageElements.getFieldEmail().sendKeys(credentials.EMAIL);
+				loginPageElements.getButtonNext().click();
+				logger.info ("STEP: Enter email - FINISHED SUCCESSFUL");
+			}
+		}
+
+		public class LoginPageElements {
+
+			public LoginPageElements() {
+			}
+
+			public WebElement getFieldEmail() {
+				return 	$(byXpath("//input[@type='email']"));
+			}
+
+			public WebElement getButtonNext() {
+				return 		$(byXpath("//input[@type='submit']"));
+			}
+		}
+
+
+		sys.defineVariable("login_page_actions", new LoginPageActions());
+	]]></script>
+
+	<export include-original-data="false">
+	</export>
+
+</config>

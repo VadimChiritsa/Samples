@@ -1,0 +1,163 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<groupId>com.epam</groupId>
+	<artifactId>droolsImpl</artifactId>
+	<version>drools.0.2.7</version>
+	<packaging>jar</packaging>
+
+	<name>[gagarin]</name>
+
+	<properties>
+		<drools.version>7.10.0.Final</drools.version>
+		<project.build.javaVersion>1.8</project.build.javaVersion>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+		<workfusion.version>9.0.0.6</workfusion.version>
+		<mcb.repo.url>http://wfapp.dev.aws.epmc-iacc.projects.epam.com/nexus/content/repositories/wf-machine-config-bundle</mcb.repo.url>
+		<mcb.content.url>http://wfapp.dev.aws.epmc-iacc.projects.epam.com/nexus/content/repositories/local-mcb-repo</mcb.content.url>
+	</properties>
+
+
+	<distributionManagement>
+		<repository>
+			<!-- If need, specify repository access credentials in your maven configuration 
+				file 'setting.xml'. Manual: http://maven.apache.org/plugins/maven-deploy-plugin/usage.html -->
+			<id>mcb-repo</id>
+			<url>${mcb.repo.url}</url>
+		</repository>
+	</distributionManagement>
+
+	<dependencies>
+
+		<dependency>
+			<groupId>com.freedomoss.crowdcontrol</groupId>
+			<artifactId>workfusion-machine</artifactId>
+			<version>9.0.0.6</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.workfusion</groupId>
+			<artifactId>rpa-selenium-java</artifactId>
+			<version>9.0.0.3</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<version>4.12</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.google.code.gson</groupId>
+			<artifactId>gson</artifactId>
+			<version>2.8.0</version>
+		</dependency>
+		<dependency>
+			<groupId>com.epam</groupId>
+			<artifactId>drools</artifactId>
+			<version>1.0.0</version>
+		</dependency>
+		<dependency>
+			<groupId>org.kie</groupId>
+			<artifactId>kie-api</artifactId>
+			<version>${drools.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.drools</groupId>
+			<artifactId>drools-core</artifactId>
+			<version>${drools.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.drools</groupId>
+			<artifactId>drools-compiler</artifactId>
+			<version>${drools.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.kie</groupId>
+			<artifactId>kie-ci</artifactId>
+			<version>${drools.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.kie.server</groupId>
+			<artifactId>kie-server-client</artifactId>
+			<version>${drools.version}</version>
+		</dependency>
+		<!-- Logging -->
+		<dependency>
+			<groupId>ch.qos.logback</groupId>
+			<artifactId>logback-classic</artifactId>
+			<version>1.1.2</version>
+		</dependency>
+		<dependency>
+			<groupId>org.kie.server</groupId>
+			<artifactId>kie-server-api</artifactId>
+			<version>7.10.0.Final</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.codehaus.groovy</groupId>
+			<artifactId>groovy-all</artifactId>
+			<version>2.4.11</version>
+		</dependency>
+
+		<dependency>
+			<groupId>log4j</groupId>
+			<artifactId>log4j</artifactId>
+			<version>1.2.17</version>
+		</dependency>
+
+
+	</dependencies>
+
+	<build>
+
+		<resources>
+			<resource>
+				<directory>src/main/resources</directory>
+			</resource>
+			<resource>
+				<directory>${build.sourceDirectory}</directory>
+				<includes>
+					<include>**/*.groovy</include>
+				</includes>
+			</resource>
+		</resources>
+
+		<plugins>
+
+			<plugin>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<configuration>
+					<encoding>${project.build.sourceEncoding}</encoding>
+					<source>${project.build.javaVersion}</source>
+					<target>${project.build.javaVersion}</target>
+				</configuration>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-dependency-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>src-dependencies</id>
+						<phase>prepare-package</phase>
+						<goals>
+							<goal>unpack-dependencies</goal>
+						</goals>
+						<configuration>
+							<includes>**/*.class,**/kie.conf</includes>
+							<failOnMissingClassifierArtifact>false</failOnMissingClassifierArtifact>
+							<excludes>**/pom.xml,**/pom.properties</excludes>
+							<outputDirectory>${project.build.outputDirectory}</outputDirectory>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+
+		</plugins>
+
+	</build>
+
+</project>
